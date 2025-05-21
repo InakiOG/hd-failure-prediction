@@ -1,5 +1,6 @@
-numpy
-pandas
-scikit-learn
-matplotlib
-seaborn
+- numpy: Fundamental package for numerical computations in Python, providing support for arrays and mathematical functions.
+- pandas: Data analysis and manipulation library, offering data structures like DataFrames for handling structured data.
+- scikit-learn: Machine learning library with tools for data mining, data analysis, and model building.
+- matplotlib: Comprehensive library for creating static, animated, and interactive visualizations in Python.
+- seaborn: Statistical data visualization library based on matplotlib, providing a high-level interface for attractive graphs.
+- torch: Deep learning framework (PyTorch) for building and training neural networks.
