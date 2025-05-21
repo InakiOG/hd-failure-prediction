@@ -1,0 +1,5 @@
+# Ignore everything in data/
+data/*
+# But do not ignore README or README.*
+!data/README
+!data/README.*
