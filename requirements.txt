@@ -1,3 +1,6 @@
+python version used is 3.9 for compatibility with pythorch and machine learning libraries.
+
+libraries used:
 - numpy: Fundamental package for numerical computations in Python, providing support for arrays and mathematical functions.
 - pandas: Data analysis and manipulation library, offering data structures like DataFrames for handling structured data.
 - scikit-learn: Machine learning library with tools for data mining, data analysis, and model building.

@@ -1,3 +1,5 @@
+# DESCRIPTION: LSTM model to predict sine and cosine functions for testing purposes.
+
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
