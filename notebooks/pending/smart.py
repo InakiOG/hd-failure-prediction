@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from tqdm import tqdm
 
 dtype_dict = {'date': 'str', 'serial_number': 'str', 'model': 'str', 'capacity_bytes': 'int32', 'failure': 'bool', 'datacenter': 'str', 'cluster_id': 'int8', 'vault_id': 'int16', 'pod_id': 'int16', 'pod_slot_num': 'float32', 'is_legacy_format': 'bool', 'smart_1_normalized': 'float64', 'smart_1_raw': 'float64', 'smart_2_normalized': 'float64', 'smart_2_raw': 'float64', 'smart_3_normalized': 'float64', 'smart_3_raw': 'float64', 'smart_4_normalized': 'float64', 'smart_4_raw': 'float64', 'smart_5_normalized': 'float64', 'smart_5_raw': 'float64', 'smart_7_normalized': 'float64', 'smart_7_raw': 'float64', 'smart_8_normalized': 'float64', 'smart_8_raw': 'float64', 'smart_9_normalized': 'float64', 'smart_9_raw': 'float64', 'smart_10_normalized': 'float64', 'smart_10_raw': 'float64', 'smart_11_normalized': 'float64', 'smart_11_raw': 'float64', 'smart_12_normalized': 'float64', 'smart_12_raw': 'float64', 'smart_13_normalized': 'float64', 'smart_13_raw': 'float64', 'smart_15_normalized': 'float64', 'smart_15_raw': 'float64', 'smart_16_normalized': 'float64', 'smart_16_raw': 'float64', 'smart_17_normalized': 'float64', 'smart_17_raw': 'float64', 'smart_18_normalized': 'float64', 'smart_18_raw': 'float64', 'smart_22_normalized': 'float64', 'smart_22_raw': 'float64', 'smart_23_normalized': 'float64', 'smart_23_raw': 'float64', 'smart_24_normalized': 'float64', 'smart_24_raw': 'float64', 'smart_27_normalized': 'float64', 'smart_27_raw': 'float64', 'smart_71_normalized': 'float64', 'smart_71_raw': 'float64', 'smart_82_normalized': 'float64', 'smart_82_raw': 'float64', 'smart_90_normalized': 'float64', 'smart_90_raw': 'float64', 'smart_160_normalized': 'float64', 'smart_160_raw': 'float64', 'smart_161_normalized': 'float64', 'smart_161_raw': 'float64', 'smart_163_normalized': 'float64', 'smart_163_raw': 'float64', 'smart_164_normalized': 'float64', 'smart_164_raw': 'float64', 'smart_165_normalized': 'float64', 'smart_165_raw': 'float64', 'smart_166_normalized': 'float64', 'smart_166_raw': 'float64', 'smart_167_normalized': 'float64', 'smart_167_raw': 'float64', 'smart_168_normalized': 'float64', 'smart_168_raw': 'float64', 'smart_169_normalized': 'float64', 'smart_169_raw': 'float64', 'smart_170_normalized': 'float64', 'smart_170_raw': 'float64', 'smart_171_normalized': 'float64', 'smart_171_raw': 'float64', 'smart_172_normalized': 'float64', 'smart_172_raw': 'float64', 'smart_173_normalized': 'float64', 'smart_173_raw': 'float64', 'smart_174_normalized': 'float64', 'smart_174_raw': 'float64', 'smart_175_normalized': 'float64', 'smart_175_raw': 'float64', 'smart_176_normalized': 'float64', 'smart_176_raw': 'float64', 'smart_177_normalized': 'float64', 'smart_177_raw': 'float64', 'smart_178_normalized': 'float64', 'smart_178_raw': 'float64', 'smart_179_normalized': 'float64', 'smart_179_raw': 'float64', 'smart_180_normalized': 'float64', 'smart_180_raw': 'float64', 'smart_181_normalized': 'float64', 'smart_181_raw': 'float64', 'smart_182_normalized': 'float64', 'smart_182_raw': 'float64', 'smart_183_normalized': 'float64', 'smart_183_raw': 'float64', 'smart_184_normalized': 'float64', 'smart_184_raw': 'float64', 'smart_187_normalized': 'float64', 'smart_187_raw': 'float64', 'smart_188_normalized': 'float64', 'smart_188_raw': 'float64', 'smart_189_normalized': 'float64', 'smart_189_raw': 'float64', 'smart_190_normalized': 'float64', 'smart_190_raw': 'float64', 'smart_191_normalized': 'float64', 'smart_191_raw': 'float64', 'smart_192_normalized': 'float64', 'smart_192_raw': 'float64', 'smart_193_normalized': 'float64', 'smart_193_raw': 'float64', 'smart_194_normalized': 'float64', 'smart_194_raw': 'float64', 'smart_195_normalized': 'float64', 'smart_195_raw': 'float64', 'smart_196_normalized': 'float64', 'smart_196_raw': 'float64', 'smart_197_normalized': 'float64', 'smart_197_raw': 'float64', 'smart_198_normalized': 'float64', 'smart_198_raw': 'float64', 'smart_199_normalized': 'float64', 'smart_199_raw': 'float64', 'smart_200_normalized': 'float64', 'smart_200_raw': 'float64', 'smart_201_normalized': 'float64', 'smart_201_raw': 'float64', 'smart_202_normalized': 'float64', 'smart_202_raw': 'float64', 'smart_206_normalized': 'float64', 'smart_206_raw': 'float64', 'smart_210_normalized': 'float64', 'smart_210_raw': 'float64', 'smart_218_normalized': 'float64', 'smart_218_raw': 'float64', 'smart_220_normalized': 'float64', 'smart_220_raw': 'float64', 'smart_222_normalized': 'float64', 'smart_222_raw': 'float64', 'smart_223_normalized': 'float64', 'smart_223_raw': 'float64', 'smart_224_normalized': 'float64', 'smart_224_raw': 'float64', 'smart_225_normalized': 'float64', 'smart_225_raw': 'float64', 'smart_226_normalized': 'float64', 'smart_226_raw': 'float64', 'smart_230_normalized': 'float64', 'smart_230_raw': 'float64', 'smart_231_normalized': 'float64', 'smart_231_raw': 'float64', 'smart_232_normalized': 'float64', 'smart_232_raw': 'float64', 'smart_233_normalized': 'float64', 'smart_233_raw': 'float64', 'smart_234_normalized': 'float64', 'smart_234_raw': 'float64', 'smart_235_normalized': 'float64', 'smart_235_raw': 'float64', 'smart_240_normalized': 'float64', 'smart_240_raw': 'float64', 'smart_241_normalized': 'float64', 'smart_241_raw': 'float64', 'smart_242_normalized': 'float64', 'smart_242_raw': 'float64', 'smart_244_normalized': 'float64', 'smart_244_raw': 'float64', 'smart_245_normalized': 'float64', 'smart_245_raw': 'float64', 'smart_246_normalized': 'float64', 'smart_246_raw': 'float64', 'smart_247_normalized': 'float64', 'smart_247_raw': 'float64', 'smart_248_normalized': 'float64', 'smart_248_raw': 'float64', 'smart_250_normalized': 'float64', 'smart_250_raw': 'float64', 'smart_251_normalized': 'float64', 'smart_251_raw': 'float64', 'smart_252_normalized': 'float64', 'smart_252_raw': 'float64', 'smart_254_normalized': 'float64', 'smart_254_raw': 'float64', 'smart_255_normalized': 'float64', 'smart_255_raw': 'float64'}
 
@@ -59,13 +60,14 @@ class _CustomDrives(Dataset):
             raise FileNotFoundError(msg)
 
         data = []
-        for file_name in os.listdir(self.dataset_path):
-            if file_name.endswith(".csv"):
-                df = clean_data_smart(pd.read_csv(os.path.join(self.dataset_path, file_name), dtype=dtype_dict))
-                # this can be in threadpool
-                data.append(df)
-                if len(data) > 5: break # TODO:: remove this line for entire dataset loading
-                if verbose: print(f'Loaded {file_name} with shape {df.shape}')
+        csv_files = [f for f in os.listdir(self.dataset_path) if f.endswith(".csv")]
+        
+        for file_name in tqdm(csv_files, desc="Loading CSV files"):
+            df = clean_data_smart(pd.read_csv(os.path.join(self.dataset_path, file_name), dtype=dtype_dict))
+            # this can be in threadpool
+            data.append(df)
+            if len(data) > 5: break # TODO:: remove this line for entire dataset loading
+            if verbose: print(f'Loaded {file_name} with shape {df.shape}')
                  
         data = pd.concat(data)
 
@@ -157,14 +159,15 @@ if __name__ == '__main__':
     days_to_train = 3
     days_to_predict = 2
     look_back = days_to_train + days_to_predict
+    path = "../../data/data_Q4_2024"
 
-    dataset_train = CustomDrives(root='data_Q4_2023_test', 
+    dataset_train = CustomDrives(root=path, 
                             train=True, 
                             input_len=days_to_train,
                             label_len=days_to_predict,
                             verbose=True)
 
-    dataset_test = CustomDrives(root='data_Q4_2023_test', 
+    dataset_test = CustomDrives(root=path, 
                                 train=False, 
                                 input_len=days_to_train,
                                 label_len=days_to_predict,
@@ -190,63 +193,75 @@ if __name__ == '__main__':
     print(f'shape: {train.shape, labels.shape}')
 
     loss_curve = []
-    minimum_loss = np.inf
-
-    # Load the model if it exists
+    minimum_loss = np.inf    # Load the model if it exists
     if os.path.exists('model.pth'):
         model.load_state_dict(torch.load('model.pth'))
         print("Model loaded successfully.")
     else:
         print("No saved model found. Training from scratch.")
 
-    for epoch in range (num_epochs):
-        print(f"epoch: {epoch}/{num_epochs}")
-        fig, ax = plt.subplots(1, 1, figsize=(15, 5))
-        ax.plot(loss_curve, lw=2)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Training Loss (L1)")
-        plt.savefig(f'loss_{epoch}.png')
-        loss_acum = 0
-
-        for train_labels in train_loader:
-            
-            loss_total = 0
-            
+    for epoch in tqdm(range(num_epochs), desc="Training Progress"):
+        epoch_loss = 0
+        num_batches = 0
+        
+        # Training loop with progress bar
+        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Training", leave=False)
+        for train_labels in train_pbar:
             model.zero_grad()
             train, labels = train_labels
 
             predictions = model(train)
-
             loss = loss_function(predictions, labels)
-            loss_total += loss.item()
+            
             loss.backward()
             optimizer.step()
-            # TODO ask if we need to add the loss total from here to the loss_acum
-
-        for test_labels in test_loader:
             
-            loss_total = 0
+            epoch_loss += loss.item()
+            num_batches += 1
             
-            model.zero_grad()
-            test, labels = test_labels
-            predictions = model(test)
+            # Update progress bar with current loss
+            train_pbar.set_postfix({'Loss': f'{loss.item():.6f}'})
 
-            loss = loss_function(predictions, labels)
-            loss_total += loss.item()
-            loss.backward()
-            optimizer.step()
-            loss_curve.append(loss_total)
-            loss_acum += loss_total
-        loss_acum /= len(test_loader)
+        # Validation loop with progress bar
+        val_loss = 0
+        val_batches = 0
+        test_pbar = tqdm(test_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Validation", leave=False)
         
-        if loss_acum < minimum_loss:
-            minimum_loss = loss_acum
+        with torch.no_grad():  # Don't compute gradients for validation
+            for test_labels in test_pbar:
+                test, labels = test_labels
+                predictions = model(test)
+                loss = loss_function(predictions, labels)
+                
+                val_loss += loss.item()
+                val_batches += 1
+                
+                # Update progress bar with current validation loss
+                test_pbar.set_postfix({'Val Loss': f'{loss.item():.6f}'})
+        
+        # Calculate average losses
+        avg_train_loss = epoch_loss / num_batches if num_batches > 0 else 0
+        avg_val_loss = val_loss / val_batches if val_batches > 0 else 0
+        
+        loss_curve.append(avg_val_loss)
+        
+        # Save best model
+        if avg_val_loss < minimum_loss:
+            minimum_loss = avg_val_loss
             torch.save(model.state_dict(), 'model.pth')
-        # Need to train and test the model with each 
-        print(loss_total)
-        #TODO Add the 11 columns to predict
+            
+        # Print epoch summary
+        print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {avg_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
         
-        # The error in the validation dataset will be used to choose the best model, maybe the weights its not the best way to do
+        # Save loss plot every 10 epochs
+        if (epoch + 1) % 10 == 0:
+            fig, ax = plt.subplots(1, 1, figsize=(15, 5))
+            ax.plot(loss_curve, lw=2)
+            ax.set_xlabel("Epoch")
+            ax.set_ylabel("Validation Loss")
+            ax.set_title("Training Progress")
+            plt.savefig(f'loss_epoch_{epoch+1}.png')
+            plt.close()  # Close the figure to free memory
 
     fig, ax = plt.subplots(1, 1, figsize=(15, 5))
     ax.plot(loss_curve, lw=2)
