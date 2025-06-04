@@ -187,99 +187,173 @@ if __name__ == '__main__':
     model = Net(n_neurons, num_features, days_to_predict).double()
     loss_function = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-    num_epochs = 1000
+    num_epochs = 1
 
+    # Move model to device
+    model = model.to(device)
+    
     train, labels = next(iter(train_loader))
     print(f'shape: {train.shape, labels.shape}')
 
     loss_curve = []
-    minimum_loss = np.inf    # Load the model if it exists
-    if os.path.exists('model.pth'):
-        model.load_state_dict(torch.load('model.pth'))
-        print("Model loaded successfully.")
+    minimum_loss = np.inf
+    
+    # Check if trained model exists
+    model_path = 'model.pth'
+    model_exists = os.path.exists(model_path)
+    
+    if model_exists:
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        print("Trained model found! Loading and testing...")
+        
+        # Test the loaded model
+        model.eval()
+        test_loss = 0
+        num_test_batches = 0
+        
+        print("Testing loaded model...")
+        test_pbar = tqdm(test_loader, desc="Testing Model", leave=False)
+        
+        with torch.no_grad():
+            for test_data, test_labels in test_pbar:
+                test_data, test_labels = test_data.to(device), test_labels.to(device)
+                predictions = model(test_data)
+                loss = loss_function(predictions, test_labels)
+                
+                test_loss += loss.item()
+                num_test_batches += 1
+                
+                test_pbar.set_postfix({'Test Loss': f'{loss.item():.6f}'})
+        
+        avg_test_loss = test_loss / num_test_batches if num_test_batches > 0 else 0
+        print(f"Model Test Results - Average Loss: {avg_test_loss:.6f}")
+        
+        # Skip training and go directly to evaluation
+        training_skipped = True
     else:
-        print("No saved model found. Training from scratch.")
+        print("No saved model found. Training from scratch...")
+        training_skipped = False
 
-    for epoch in tqdm(range(num_epochs), desc="Training Progress"):
-        epoch_loss = 0
-        num_batches = 0
+    # Only train if no model exists
+    if not training_skipped:        # Move model to device
+        model = model.to(device)
         
-        # Training loop with progress bar
-        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Training", leave=False)
-        for train_labels in train_pbar:
-            model.zero_grad()
-            train, labels = train_labels
+        for epoch in tqdm(range(num_epochs), desc="Training Progress"):
+            epoch_loss = 0
+            num_batches = 0
+            
+            # Training loop with progress bar
+            train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Training", leave=False)
+            for train_labels in train_pbar:
+                model.zero_grad()
+                train_data, labels = train_labels
+                train_data, labels = train_data.to(device), labels.to(device)
 
-            predictions = model(train)
-            loss = loss_function(predictions, labels)
-            
-            loss.backward()
-            optimizer.step()
-            
-            epoch_loss += loss.item()
-            num_batches += 1
-            
-            # Update progress bar with current loss
-            train_pbar.set_postfix({'Loss': f'{loss.item():.6f}'})
-
-        # Validation loop with progress bar
-        val_loss = 0
-        val_batches = 0
-        test_pbar = tqdm(test_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Validation", leave=False)
-        
-        with torch.no_grad():  # Don't compute gradients for validation
-            for test_labels in test_pbar:
-                test, labels = test_labels
-                predictions = model(test)
+                predictions = model(train_data)
                 loss = loss_function(predictions, labels)
                 
-                val_loss += loss.item()
-                val_batches += 1
+                loss.backward()
+                optimizer.step()
                 
-                # Update progress bar with current validation loss
-                test_pbar.set_postfix({'Val Loss': f'{loss.item():.6f}'})
-        
-        # Calculate average losses
-        avg_train_loss = epoch_loss / num_batches if num_batches > 0 else 0
-        avg_val_loss = val_loss / val_batches if val_batches > 0 else 0
-        
-        loss_curve.append(avg_val_loss)
-        
-        # Save best model
-        if avg_val_loss < minimum_loss:
-            minimum_loss = avg_val_loss
-            torch.save(model.state_dict(), 'model.pth')
+                epoch_loss += loss.item()
+                num_batches += 1
+                
+                # Update progress bar with current loss
+                train_pbar.set_postfix({'Loss': f'{loss.item():.6f}'})
+
+            # Validation loop with progress bar
+            val_loss = 0
+            val_batches = 0
+            test_pbar = tqdm(test_loader, desc=f"Epoch {epoch+1}/{num_epochs} - Validation", leave=False)
             
-        # Print epoch summary
-        print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {avg_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
-        
-        # Save loss plot every 10 epochs
-        if (epoch + 1) % 10 == 0:
-            fig, ax = plt.subplots(1, 1, figsize=(15, 5))
-            ax.plot(loss_curve, lw=2)
-            ax.set_xlabel("Epoch")
-            ax.set_ylabel("Validation Loss")
-            ax.set_title("Training Progress")
-            plt.savefig(f'loss_epoch_{epoch+1}.png')
-            plt.close()  # Close the figure to free memory
+            with torch.no_grad():  # Don't compute gradients for validation
+                for test_data, test_labels in test_pbar:
+                    test_data, test_labels = test_data.to(device), test_labels.to(device)
+                    predictions = model(test_data)
+                    loss = loss_function(predictions, test_labels)
+                    
+                    val_loss += loss.item()
+                    val_batches += 1
+                    
+                    # Update progress bar with current validation loss
+                    test_pbar.set_postfix({'Val Loss': f'{loss.item():.6f}'})
+            
+            # Calculate average losses
+            avg_train_loss = epoch_loss / num_batches if num_batches > 0 else 0
+            avg_val_loss = val_loss / val_batches if val_batches > 0 else 0
+            
+            loss_curve.append(avg_val_loss)
+            
+            # Save best model
+            if avg_val_loss < minimum_loss:
+                minimum_loss = avg_val_loss
+                torch.save(model.state_dict(), model_path)
+                print(f"New best model saved with validation loss: {avg_val_loss:.6f}")
+                
+            # Print epoch summary
+            print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {avg_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
+            
+            # Save loss plot every 10 epochs
+            if (epoch + 1) % 10 == 0:
+                fig, ax = plt.subplots(1, 1, figsize=(15, 5))
+                ax.plot(loss_curve, lw=2)
+                ax.set_xlabel("Epoch")
+                ax.set_ylabel("Validation Loss")
+                ax.set_title("Training Progress")
+                plt.savefig(f'loss_epoch_{epoch+1}.png')
+                plt.close()  # Close the figure to free memory
 
-    fig, ax = plt.subplots(1, 1, figsize=(15, 5))
-    ax.plot(loss_curve, lw=2)
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Training Loss (L1)")
-    plt.savefig('final_loss.png')
+    # Generate final plots and predictions
+    if loss_curve:  # Only plot if we have training data
+        fig, ax = plt.subplots(1, 1, figsize=(15, 5))
+        ax.plot(loss_curve, lw=2)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Validation Loss")
+        ax.set_title("Final Training Loss")
+        plt.savefig('final_loss.png')
+        plt.close()
 
-    # Score the results with the testing set and plot 
+    # Generate predictions on test set
+    model.eval()
+    test_predictions = []
+    test_targets = []
+    
+    print("Generating final predictions...")
     with torch.no_grad():
-        test_predictions = model(dataset_train).squeeze()
-
-    test_predictions = test_predictions.detach().numpy()
-
-    x = np.arange(100 + look_back, 100 + look_back + len(test_predictions) * 0.5, 0.5)
-    fig, ax = plt.subplots(1, 1, figsize=(15, 5))
-    ax.plot(x, test_predictions, lw=2, label='Predictions')
-    ax.set_xlabel("Time")
-    ax.set_ylabel("Predicted Values")
-    ax.legend()
+        for test_data, test_labels in tqdm(test_loader, desc="Generating predictions"):
+            test_data, test_labels = test_data.to(device), test_labels.to(device)
+            predictions = model(test_data)
+            test_predictions.append(predictions.cpu().numpy())
+            test_targets.append(test_labels.cpu().numpy())
+    
+    # Concatenate all predictions and targets
+    test_predictions = np.concatenate(test_predictions, axis=0)
+    test_targets = np.concatenate(test_targets, axis=0)
+    
+    # Plot predictions vs actual values for the first feature
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10))
+    
+    # Plot first few samples for visualization
+    num_samples_to_plot = min(50, len(test_predictions))
+    x = np.arange(num_samples_to_plot)
+    
+    ax1.plot(x, test_predictions[:num_samples_to_plot, 0, 0], label='Predicted', alpha=0.7)
+    ax1.plot(x, test_targets[:num_samples_to_plot, 0, 0], label='Actual', alpha=0.7)
+    ax1.set_xlabel("Sample")
+    ax1.set_ylabel("Feature 1 Value")
+    ax1.set_title("Predictions vs Actual Values (Feature 1)")
+    ax1.legend()
+    
+    # Plot prediction error
+    error = test_predictions[:num_samples_to_plot, 0, 0] - test_targets[:num_samples_to_plot, 0, 0]
+    ax2.plot(x, error, label='Prediction Error', color='red', alpha=0.7)
+    ax2.set_xlabel("Sample")
+    ax2.set_ylabel("Error")
+    ax2.set_title("Prediction Error")
+    ax2.legend()
+    
+    plt.tight_layout()
     plt.savefig('test_predictions.png')
     plt.show()
+    
+    print(f"Final model evaluation completed. Results saved to test_predictions.png")
