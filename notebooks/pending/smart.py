@@ -66,7 +66,6 @@ class _CustomDrives(Dataset):
             df = clean_data_smart(pd.read_csv(os.path.join(self.dataset_path, file_name), dtype=dtype_dict))
             # this can be in threadpool
             data.append(df)
-            if len(data) > 5: break # TODO:: remove this line for entire dataset loading
             if verbose: print(f'Loaded {file_name} with shape {df.shape}')
                  
         data = pd.concat(data)
@@ -159,7 +158,7 @@ if __name__ == '__main__':
     days_to_train = 3
     days_to_predict = 2
     look_back = days_to_train + days_to_predict
-    path = "../../data/data_Q4_2024"
+    path = "../../data/data_test"
 
     dataset_train = CustomDrives(root=path, 
                             train=True, 
@@ -199,7 +198,7 @@ if __name__ == '__main__':
     minimum_loss = np.inf
     
     # Check if trained model exists
-    model_path = 'model.pth'
+    model_path = '../../models/lstm_model.pth'
     model_exists = os.path.exists(model_path)
     
     if model_exists:
