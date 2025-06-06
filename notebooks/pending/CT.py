@@ -11,6 +11,9 @@ from imblearn.over_sampling import SMOTE
 from sklearn.feature_selection import SelectFdr, chi2
 from sklearn import tree
 from tqdm import tqdm
+import joblib
+import json
+from datetime import datetime
 
 def process_chunks(file_path):
     """
@@ -167,7 +170,7 @@ def cleandata_smart_balanced(df):
     return df
 
 # Function to import the dataset
-def importdata():
+def importdata(path):
     """
     Import and prepare the dataset for analysis.
     
@@ -177,8 +180,7 @@ def importdata():
     Returns:
         pd.DataFrame: Processed and balanced dataset ready for analysis
     """
-    print("Current working directory:", os.getcwd())
-    folder_path = "data"
+    folder_path = path
     original_df = getdata(folder_path)
     balance_data = original_df
     # Displaying dataset information
@@ -294,25 +296,31 @@ def prediction(X_test, clf_object):
     return y_pred
 
 # Function to calculate accuracy and other metrics
-def cal_accuracy(y_test, y_pred):
+def cal_accuracy(y_test, y_pred, model=None, model_type=None, save_if_best=True):
     """
     Calculate and display comprehensive accuracy metrics for binary classification.
     
     Computes confusion matrix, accuracy, classification report, and various 
     performance metrics including sensitivity, specificity, precision, recall, etc.
+    Optionally saves the model if it performs better than previous versions.
     
     Args:
         y_test (array-like): True labels for test data
         y_pred (array-like): Predicted labels from classifier
+        model: Trained model object (optional, for saving)
+        model_type (str): Type of model ('gini' or 'entropy', optional)
+        save_if_best (bool): Whether to save model if it's the best performer
         
     Returns:
-        None: Prints all calculated metrics to console
+        float: Accuracy score
     """
     cnf_matrix = confusion_matrix(y_test, y_pred)
+    accuracy = accuracy_score(y_test, y_pred)
+    
     print("Confusion Matrix: ",
           cnf_matrix)
     print("Accuracy : ",
-          accuracy_score(y_test, y_pred)*100)
+          accuracy*100)
     print("Report : ",
           classification_report(y_test, y_pred))
     
@@ -339,8 +347,7 @@ def cal_accuracy(y_test, y_pred):
     # False negative rate
     FNR = FN/(TP+FN)
     # False discovery rate
-    FDR = FP/(TP+FP)
-    # Overall accuracy
+    FDR = FP/(TP+FP)    # Overall accuracy
     ACC = (TP+TN)/(TP+FP+FN+TN)
 
     print("FP: ", FP)
@@ -355,6 +362,15 @@ def cal_accuracy(y_test, y_pred):
     print("FNR: ", FNR)
     print("FDR: ", FDR)
     print("ACC: ", ACC)
+      # Save model if it's the best performer
+    if save_if_best and model is not None and model_type is not None:
+        metrics_dict = {
+            "classification_report": classification_report(y_test, y_pred, output_dict=True),
+            "confusion_matrix": confusion_matrix(y_test, y_pred).tolist()
+        }
+        save_best_model(model, model_type, accuracy, metrics_dict)
+    
+    return accuracy
 
 # Function to plot the decision tree
 def plot_decision_tree(clf_object, feature_names, class_names):
@@ -376,9 +392,161 @@ def plot_decision_tree(clf_object, feature_names, class_names):
     tree.plot_tree(clf_object, filled=True, feature_names=feature_names, class_names=class_names, rounded=True)
     plt.show()
 
+# Function to save the model
+def save_model(model, model_name):
+    """
+    Save the trained model to a file.
+    
+    Serializes and saves the trained model using joblib for persistence.
+    
+    Args:
+        model (object): Trained model object to be saved
+        model_name (str): Name for the model file (without extension)
+        
+    Returns:
+        None: Saves the model to a file
+    """
+    # Create the 'models' directory if it doesn't exist
+    os.makedirs("models", exist_ok=True)
+    
+    # Save the model using joblib
+    joblib.dump(model, f"models/DT/{model_name}.joblib")
+    print(f"Model saved as: models/DT/{model_name}.joblib")
+
+def save_best_model(model, model_type, accuracy, metrics_dict, model_dir="models/DT"):
+    """
+    Save a model only if it performs better than the previous best model.
+    
+    Args:
+        model: The trained scikit-learn model
+        model_type (str): Type of model ('gini' or 'entropy')
+        accuracy (float): Model accuracy score
+        metrics_dict (dict): Dictionary containing performance metrics
+        model_dir (str): Directory to save models (default: 'models/DT')
+
+    Returns:
+        bool: True if model was saved (better performance), False otherwise
+    """
+    # Create model directory if it doesn't exist
+    os.makedirs(model_dir, exist_ok=True)
+    
+    model_filename = f"{model_dir}/best_{model_type}_tree.joblib"
+    metrics_filename = f"{model_dir}/best_{model_type}_metrics.json"
+    
+    # Check if previous model exists
+    should_save = True
+    if os.path.exists(metrics_filename):
+        with open(metrics_filename, 'r') as f:
+            previous_metrics = json.load(f)
+        
+        # Compare accuracy (you can add more sophisticated comparison logic)
+        if accuracy <= previous_metrics.get('accuracy', 0):
+            should_save = False
+            print(f"❌ New {model_type} model accuracy ({accuracy:.4f}) not better than previous best ({previous_metrics.get('accuracy', 0):.4f})")
+            return False
+    
+    if should_save:
+        # Save the model
+        joblib.dump(model, model_filename)
+        
+        # Save metrics with timestamp
+        metrics_dict.update({
+            'accuracy': accuracy,
+            'model_type': model_type,
+            'timestamp': datetime.now().isoformat(),
+            'model_filename': model_filename
+        })
+        
+        with open(metrics_filename, 'w') as f:
+            json.dump(metrics_dict, f, indent=2)
+        
+        print(f"✅ New best {model_type} model saved! Accuracy: {accuracy:.4f}")
+        return True
+
+# Function to load the model
+def load_model(model_name):
+    """
+    Load a trained model from a file.
+    
+    Deserializes and loads the trained model using joblib.
+    
+    Args:
+        model_name (str): Name of the model file to be loaded (without extension)
+        
+    Returns:
+        object: Loaded model object
+    """
+    model = joblib.load(f"models/DT/{model_name}.joblib")
+    print(f"Model loaded: models/DT/{model_name}.joblib")
+    return model
+
+def load_best_model(model_type, model_dir="models"):
+    """
+    Load the best saved model and its metrics.
+    
+    Args:
+        model_type (str): Type of model to load ('gini' or 'entropy')
+        model_dir (str): Directory where models are saved
+    
+    Returns:
+        tuple: (model, metrics_dict) or (None, None) if no model found
+    """
+    model_filename = f"{model_dir}/best_{model_type}_tree.joblib"
+    metrics_filename = f"{model_dir}/best_{model_type}_metrics.json"
+    
+    if os.path.exists(model_filename) and os.path.exists(metrics_filename):
+        model = joblib.load(model_filename)
+        with open(metrics_filename, 'r') as f:
+            metrics = json.load(f)
+        return model, metrics
+    else:
+        print(f"⚠️ No saved {model_type} model found")
+        return None, None
+
+# Function to log model performance
+def log_model_performance(model_name, accuracy, params):
+    """
+    Log the model performance metrics to a JSON file.
+    
+    Records the model name, accuracy, and other parameters to a JSON file for tracking
+    and comparison of different model runs.
+    
+    Args:
+        model_name (str): Name of the model
+        accuracy (float): Accuracy of the model
+        params (dict): Dictionary of model parameters
+        
+    Returns:
+        None: Appends the performance data to a JSON file
+    """
+    log_file = "model_performance.json"
+    log_data = {
+        "model_name": model_name,
+        "accuracy": accuracy,
+        "params": params,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    # Load existing log data
+    if os.path.exists(log_file):
+        with open(log_file, "r") as f:
+            all_logs = json.load(f)
+    else:
+        all_logs = []
+    
+    # Append new log entry
+    all_logs.append(log_data)
+    
+    # Save back to JSON file
+    with open(log_file, "w") as f:
+        json.dump(all_logs, f, indent=4)
+    
+    print(f"Logged model performance to {log_file}")
+
 if __name__ == "__main__":
 # Import data
-    data = importdata()
+    data_path = "data/data_test"
+    data = importdata(data_path)
 
     # Split dataset and apply SMOTE
     X, Y, X_train, X_test, y_train, y_test = splitdataset(data)
@@ -396,9 +564,45 @@ if __name__ == "__main__":
     y_pred_gini = prediction(X_test, clf_gini)
     cal_accuracy(y_test, y_pred_gini)
 
+    # Save the Gini model
+    save_model(clf_gini, "decision_tree_gini")
+
     print("\n" + "="*50 + "\n")
 
     # Test Entropy
     print("Results Using Entropy:")
     y_pred_entropy = prediction(X_test, clf_entropy)
     cal_accuracy(y_test, y_pred_entropy)
+
+    # Save the Entropy model
+    save_model(clf_entropy, "decision_tree_entropy")    # Log model performances
+    log_model_performance("decision_tree_gini", accuracy_score(y_test, y_pred_gini), {"depth": depth, "leaf": leaf})
+    log_model_performance("decision_tree_entropy", accuracy_score(y_test, y_pred_entropy), {"depth": depth, "leaf": leaf})
+    
+    # Save only the best models
+    gini_accuracy = accuracy_score(y_test, y_pred_gini)
+    entropy_accuracy = accuracy_score(y_test, y_pred_entropy)
+    
+    gini_metrics = {
+        "classification_report": classification_report(y_test, y_pred_gini, output_dict=True),
+        "confusion_matrix": confusion_matrix(y_test, y_pred_gini).tolist(),
+        "hyperparameters": {"depth": depth, "leaf": leaf}
+    }
+    
+    entropy_metrics = {
+        "classification_report": classification_report(y_test, y_pred_entropy, output_dict=True),
+        "confusion_matrix": confusion_matrix(y_test, y_pred_entropy).tolist(),
+        "hyperparameters": {"depth": depth, "leaf": leaf}
+    }
+    
+    best_gini_saved = save_best_model(clf_gini, "gini", gini_accuracy, gini_metrics)
+    best_entropy_saved = save_best_model(clf_entropy, "entropy", entropy_accuracy, entropy_metrics)
+
+    # Load and test the best models
+    if best_gini_saved:
+        best_gini_model, best_gini_metrics = load_best_model("gini")
+        print("Best Gini Model Metrics:", best_gini_metrics)
+
+    if best_entropy_saved:
+        best_entropy_model, best_entropy_metrics = load_best_model("entropy")
+        print("Best Entropy Model Metrics:", best_entropy_metrics)

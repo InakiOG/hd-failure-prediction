@@ -1,0 +1,92 @@
+[
+    {
+        "model_name": "decision_tree_gini",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:00:54.854506"
+    },
+    {
+        "model_name": "decision_tree_entropy",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:00:54.866684"
+    },
+    {
+        "model_name": "decision_tree_gini",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:08:19.281305"
+    },
+    {
+        "model_name": "decision_tree_entropy",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:08:19.282312"
+    },
+    {
+        "model_name": "decision_tree_gini",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:09:50.889741"
+    },
+    {
+        "model_name": "decision_tree_entropy",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:09:50.923791"
+    },
+    {
+        "model_name": "decision_tree_gini",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:11:42.420477"
+    },
+    {
+        "model_name": "decision_tree_entropy",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:11:42.429133"
+    },
+    {
+        "model_name": "decision_tree_gini",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:12:15.383900"
+    },
+    {
+        "model_name": "decision_tree_entropy",
+        "accuracy": 0.9316239316239316,
+        "params": {
+            "depth": 100,
+            "leaf": 15
+        },
+        "timestamp": "2025-06-06T01:12:15.393540"
+    }
+]
