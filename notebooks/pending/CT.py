@@ -545,7 +545,7 @@ def log_model_performance(model_name, accuracy, params):
 
 if __name__ == "__main__":
 # Import data
-    data_path = "data/data_test"
+    data_path = "data"
     data = importdata(data_path)
 
     # Split dataset and apply SMOTE
