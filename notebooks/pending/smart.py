@@ -108,10 +108,20 @@ class _CustomDrives(Dataset):
             raise FileNotFoundError(msg)
 
         data = []
-        csv_files = [f for f in os.listdir(self.dataset_path) if f.endswith(".csv")]
-        
+        csv_files = []
+        # Check if the path contains subfolders
+        subfolders = [os.path.join(self.dataset_path, d) for d in os.listdir(self.dataset_path) if os.path.isdir(os.path.join(self.dataset_path, d))]
+        print(f'[CustomDrives] Found {len(subfolders)} subfolders in {self.dataset_path}.') if verbose else None
+        if subfolders:
+            # If there are subfolders, collect all CSVs from each subfolder
+            for subfolder in subfolders:
+                csv_files.extend([os.path.join(subfolder, f) for f in os.listdir(subfolder) if f.endswith(".csv")])
+        else:
+            # Otherwise, just collect CSVs from the root folder
+            csv_files = [os.path.join(self.dataset_path, f) for f in os.listdir(self.dataset_path) if f.endswith(".csv")]
+
         for file_name in tqdm(csv_files, desc="Loading CSV files"):
-            df = clean_data_smart(pd.read_csv(os.path.join(self.dataset_path, file_name), dtype=dtype_dict))
+            df = clean_data_smart(pd.read_csv(file_name, dtype=dtype_dict))
             # this can be in threadpool
             data.append(df)
             if verbose: print(f'Loaded {file_name} with shape {df.shape}')
@@ -121,11 +131,13 @@ class _CustomDrives(Dataset):
         # sort to make consistent
         data.sort_values(by=['serial_number', 'date'], ascending=[True, True], inplace=True)
 
-        if verbose: print(f'Loaded {len(data)} rows with shape {data.shape}')
+        if verbose: 
+            print(f'[CustomDrives] Loaded {len(data)} rows from all CSV files. DataFrame shape: {data.shape}')
 
         grouped = data.groupby('serial_number')
 
-        if verbose: print(f'Loaded {len(grouped.groups)} serial numbers')
+        if verbose: 
+            print(f'[CustomDrives] Grouped data by serial_number. Found {len(grouped.groups)} unique drives.')
 
         # then we drop 20% of groups if traning otherwise we drop 80% for testing
         drop_ratio = int((len(grouped.groups)) * 0.8 if train else 0.2)
@@ -133,16 +145,22 @@ class _CustomDrives(Dataset):
             groups_to_keep = list(grouped.groups.keys())[drop_ratio:]
         else:
             groups_to_keep = list(grouped.groups.keys())[:-drop_ratio]
-        if verbose: print(f'Loaded {len(groups_to_keep)} serial numbers after sampling')
-        data =data[~data['serial_number'].isin(groups_to_keep)]
+        if verbose:
+            print(f'[CustomDrives] After sampling: keeping {len(groups_to_keep)} serial numbers for {"training" if train else "testing"} set.')
+        # Remove serial numbers not in groups_to_keep (should be: keep only those in groups_to_keep)
+        data = data[data['serial_number'].isin(groups_to_keep)]
         grouped = data.groupby('serial_number')
-        if verbose: print(f'Loaded {len(grouped.groups)} serial numbers after sampling')
+        if verbose:
+            print(f'[CustomDrives] After filtering: {len(grouped.groups)} serial numbers remain in the {"training" if train else "testing"} set.')
         
         # Compute the size of each group and create a boolean mask for rows to keep
         group_sizes = grouped.size()
         groups_to_keep = group_sizes[group_sizes >= (input_len + label_len)].index
         self.data = data[data['serial_number'].isin(groups_to_keep)].groupby('serial_number')
-        if verbose: print(f'Loaded {len(self.data.groups)} serial numbers after filtering')
+        if verbose: 
+            print(f'[CustomDrives] After filtering by minimum sequence length (input_len + label_len = {input_len + label_len}), {len(self.data.groups)} serial numbers remain in the {"training" if train else "testing"} set.')
+        if len(self.data.groups) == 0:
+            raise ValueError(f'No valid sequences found in the dataset with input_len={input_len} and label_len={label_len}. Please check your data or adjust the parameters.')
         
         # need to to calculations to get the length of the dataset
         # we may start with a simple calculation and improve it later:
@@ -364,19 +382,20 @@ if __name__ == '__main__':
     days_to_train = 3
     days_to_predict = 2
     look_back = days_to_train + days_to_predict
-    path = "data/data_test"
+    path = "data\\"
+    verbose = True
 
     dataset_train = CustomDrives(root=path, 
                             train=True, 
                             input_len=days_to_train,
                             label_len=days_to_predict,
-                            verbose=True)
+                            verbose=verbose)
 
     dataset_test = CustomDrives(root=path, 
                                 train=False, 
                                 input_len=days_to_train,
                                 label_len=days_to_predict,
-                                verbose=True)    
+                                verbose=verbose)    
 
     train_loader = DataLoader(dataset_train, batch_size=3, shuffle=True)
 
