@@ -1,3 +1,4 @@
+from typing import Optional
 import os
 import pandas as pd
 import torch
@@ -70,101 +71,150 @@ def clean_data_smart(df):
 
     return df
 
+class DriveDataLoader:
+    """
+    Centralized data loader that handles the train/test split at the drive level to prevent data leakage.
+    
+    This class loads all data once and creates separate train/test splits based on drive serial numbers,
+    ensuring that no drive appears in both training and testing sets.
+    """
+    def __init__(self, root: str, train_ratio: float = 0.8, verbose: bool = False):
+        """
+        Initialize the data loader and perform the train/test split.
+        
+        Args:
+            root (str): Root directory containing CSV files with hard drive data
+            train_ratio (float): Ratio of drives to use for training (0.8 = 80% train, 20% test)
+            verbose (bool): Whether to print detailed information during loading
+        """
+        self.dataset_path = root
+        self.train_ratio = train_ratio
+        self.verbose = verbose
+        
+        if not os.path.isdir(self.dataset_path):
+            msg = f'Could not find the csv files in {self.dataset_path}.'
+            raise FileNotFoundError(msg)
+        
+        # Load all data
+        self._load_all_data()
+        
+        # Perform train/test split at drive level
+        self._split_drives()
+    
+    def _load_all_data(self):
+        """Load all CSV files and concatenate them."""
+        data = []
+        csv_files = []
+        
+        # Check if the path contains subfolders
+        subfolders = [os.path.join(self.dataset_path, d) for d in os.listdir(self.dataset_path) 
+                     if os.path.isdir(os.path.join(self.dataset_path, d))]
+        
+        if self.verbose:
+            print(f'[DriveDataLoader] Found {len(subfolders)} subfolders in {self.dataset_path}.')
+        
+        if subfolders:
+            # If there are subfolders, collect all CSVs from each subfolder
+            for subfolder in subfolders:
+                csv_files.extend([os.path.join(subfolder, f) for f in os.listdir(subfolder) 
+                                if f.endswith(".csv")])
+        else:
+            # Otherwise, just collect CSVs from the root folder
+            csv_files = [os.path.join(self.dataset_path, f) for f in os.listdir(self.dataset_path) 
+                        if f.endswith(".csv")]
+
+        for file_name in tqdm(csv_files, desc="Loading CSV files"):
+            df = clean_data_smart(pd.read_csv(file_name, dtype=dtype_dict))
+            data.append(df)
+            if self.verbose:
+                print(f'Loaded {file_name} with shape {df.shape}')
+        
+        self.all_data = pd.concat(data)
+        
+        # Sort to make consistent
+        self.all_data.sort_values(by=['serial_number', 'date'], ascending=[True, True], inplace=True)
+        
+        if self.verbose:
+            print(f'[DriveDataLoader] Loaded {len(self.all_data)} rows from all CSV files. DataFrame shape: {self.all_data.shape}')
+    
+    def _split_drives(self):
+        """Split drives into train and test sets at the drive level."""
+        # Get all unique drive serial numbers
+        all_drives = list(self.all_data['serial_number'].unique())
+        
+        if self.verbose:
+            print(f'[DriveDataLoader] Found {len(all_drives)} unique drives.')
+        
+        # Shuffle drives to randomize the split (with fixed seed for reproducibility)
+        np.random.seed(42)
+        np.random.shuffle(all_drives)
+        
+        # Calculate split point
+        split_point = int(len(all_drives) * self.train_ratio)
+        
+        # Split drives
+        self.train_drives = all_drives[:split_point]
+        self.test_drives = all_drives[split_point:]
+        
+        if self.verbose:
+            print(f'[DriveDataLoader] Split: {len(self.train_drives)} drives for training, {len(self.test_drives)} drives for testing.')
+            print(f'[DriveDataLoader] Train ratio: {len(self.train_drives) / len(all_drives):.2%}')
+    
+    def get_train_data(self):
+        """Get data for training drives only."""
+        return self.all_data[self.all_data['serial_number'].isin(self.train_drives)]
+    
+    def get_test_data(self):
+        """Get data for testing drives only."""
+        return self.all_data[self.all_data['serial_number'].isin(self.test_drives)]
+
 class _CustomDrives(Dataset):
     """
     Internal dataset class for loading and preprocessing hard drive SMART data for time series analysis.
     
-    This class handles loading CSV files, cleaning the data, organizing the data by drive serial number,
+    This class handles preprocessing of pre-split data, organizing the data by drive serial number,
     and preparing time-ordered sequences for training or testing. It splits data into input and target
     windows, allowing for time series prediction of future SMART values.
     
     Note: This is an internal implementation class used by CustomDrives.
-    """
-    def __init__(self, 
-                 root: str = '.',
-                 train: bool = False,
+    """    def __init__(self, 
+                 data: pd.DataFrame,
                  input_len: int = 3,
                  label_len: int = 1,
                  verbose = False):
         """
-        Initialize the dataset with configuration for time series prediction.
+        Initialize the dataset with pre-split data for time series prediction.
         
         Args:
-            root (str): Root directory containing CSV files with hard drive data
-            train (bool): Whether this dataset is for training (True) or testing (False)
+            data (pd.DataFrame): Pre-split DataFrame containing SMART data for either training or testing
             input_len (int): Number of time steps to use as input (look-back window)
             label_len (int): Number of time steps to predict (forecast window)
             verbose (bool): Whether to print detailed information during loading
         """
         super().__init__()
         
-        #Input len is the past window of time and label len is the future window 
+        # Input len is the past window of time and label len is the future window 
         self.input_len = input_len
         self.label_len = label_len
         
-        self.dataset_path = root
-        if not os.path.isdir(self.dataset_path):
-            msg = f'Could not find the csv files in {self.dataset_path}. '
-            raise FileNotFoundError(msg)
-
-        data = []
-        csv_files = []
-        # Check if the path contains subfolders
-        subfolders = [os.path.join(self.dataset_path, d) for d in os.listdir(self.dataset_path) if os.path.isdir(os.path.join(self.dataset_path, d))]
-        print(f'[CustomDrives] Found {len(subfolders)} subfolders in {self.dataset_path}.') if verbose else None
-        if subfolders:
-            # If there are subfolders, collect all CSVs from each subfolder
-            for subfolder in subfolders:
-                csv_files.extend([os.path.join(subfolder, f) for f in os.listdir(subfolder) if f.endswith(".csv")])
-        else:
-            # Otherwise, just collect CSVs from the root folder
-            csv_files = [os.path.join(self.dataset_path, f) for f in os.listdir(self.dataset_path) if f.endswith(".csv")]
-
-        for file_name in tqdm(csv_files, desc="Loading CSV files"):
-            df = clean_data_smart(pd.read_csv(file_name, dtype=dtype_dict))
-            # this can be in threadpool
-            data.append(df)
-            if verbose: print(f'Loaded {file_name} with shape {df.shape}')
-                 
-        data = pd.concat(data)
-
-        # sort to make consistent
-        data.sort_values(by=['serial_number', 'date'], ascending=[True, True], inplace=True)
-
         if verbose: 
-            print(f'[CustomDrives] Loaded {len(data)} rows from all CSV files. DataFrame shape: {data.shape}')
+            print(f'[_CustomDrives] Processing {len(data)} rows. DataFrame shape: {data.shape}')
 
         grouped = data.groupby('serial_number')
 
         if verbose: 
-            print(f'[CustomDrives] Grouped data by serial_number. Found {len(grouped.groups)} unique drives.')
-
-        # then we drop 20% of groups if traning otherwise we drop 80% for testing
-        drop_ratio = int((len(grouped.groups)) * 0.8 if train else 0.2)
-        if train:
-            groups_to_keep = list(grouped.groups.keys())[drop_ratio:]
-        else:
-            groups_to_keep = list(grouped.groups.keys())[:-drop_ratio]
-        if verbose:
-            print(f'[CustomDrives] After sampling: keeping {len(groups_to_keep)} serial numbers for {"training" if train else "testing"} set.')
-        # Remove serial numbers not in groups_to_keep (should be: keep only those in groups_to_keep)
-        data = data[data['serial_number'].isin(groups_to_keep)]
-        grouped = data.groupby('serial_number')
-        if verbose:
-            print(f'[CustomDrives] After filtering: {len(grouped.groups)} serial numbers remain in the {"training" if train else "testing"} set.')
+            print(f'[_CustomDrives] Grouped data by serial_number. Found {len(grouped.groups)} unique drives.')
         
         # Compute the size of each group and create a boolean mask for rows to keep
         group_sizes = grouped.size()
         groups_to_keep = group_sizes[group_sizes >= (input_len + label_len)].index
         self.data = data[data['serial_number'].isin(groups_to_keep)].groupby('serial_number')
         if verbose: 
-            print(f'[CustomDrives] After filtering by minimum sequence length (input_len + label_len = {input_len + label_len}), {len(self.data.groups)} serial numbers remain in the {"training" if train else "testing"} set.')
+            print(f'[_CustomDrives] After filtering by minimum sequence length (input_len + label_len = {input_len + label_len}), {len(self.data.groups)} serial numbers remain.')
         if len(self.data.groups) == 0:
             raise ValueError(f'No valid sequences found in the dataset with input_len={input_len} and label_len={label_len}. Please check your data or adjust the parameters.')
         
-        # need to to calculations to get the length of the dataset
-        # we may start with a simple calculation and improve it later:
-        # just the number of keys
+        # Calculate the length of the dataset
         self.len = len(self.data.groups)
         self.list_of_keys = list(self.data.groups.keys())
     
@@ -203,9 +253,9 @@ class CustomDrives(Dataset):
     the data for PyTorch models by converting DataFrame rows to NumPy arrays
     and then to PyTorch tensors. It handles feature extraction and tensor
     conversion for both input and output sequences.
-    """
-    def __init__(self, 
-                 root: str = '.',
+    """    def __init__(self, 
+                 data_loader: Optional[DriveDataLoader] = None,
+                 root: Optional[str] = None,
                  train: bool = False,
                  input_len: int = 3,
                  label_len: int = 1,
@@ -214,19 +264,38 @@ class CustomDrives(Dataset):
         Initialize the dataset with configuration for time series prediction.
         
         Args:
-            root (str): Root directory containing CSV files with hard drive data
+            data_loader (DriveDataLoader): Pre-initialized data loader with train/test split
+            root (str): Root directory containing CSV files (used only if data_loader is None)
             train (bool): Whether this dataset is for training (True) or testing (False)
             input_len (int): Number of time steps to use as input (look-back window)
             label_len (int): Number of time steps to predict (forecast window)
             verbose (bool): Whether to print detailed information during loading
         """
         super().__init__()
-        self.dataset = _CustomDrives(root=root, 
-                                     train=train, 
+        
+        # Get the appropriate data based on train/test split
+        if data_loader is not None:
+            # Use pre-split data
+            if train:
+                data = data_loader.get_train_data()
+            else:
+                data = data_loader.get_test_data()
+        else:
+            # Fallback to old behavior (for backward compatibility)
+            if root is None:
+                raise ValueError("Either data_loader or root must be provided")
+            # Create a temporary data loader
+            temp_loader = DriveDataLoader(root=root, verbose=verbose)
+            if train:
+                data = temp_loader.get_train_data()
+            else:
+                data = temp_loader.get_test_data()
+        
+        self.dataset = _CustomDrives(data=data, 
                                      input_len=input_len,
                                      label_len=label_len,
                                      verbose=verbose)
-        
+
     def __len__(self):
         """
         Return the length of the dataset (number of drive sequences).
@@ -250,8 +319,8 @@ class CustomDrives(Dataset):
                   features for the input and output time windows
         """
         train, label = self.dataset[idx]
-        train = train.drop(columns=['serial_number', 'date', 'failure']) # maybe failure?
-        label = label.drop(columns=['serial_number', 'date', 'failure']) # maybe failure?
+        train = train.drop(columns=['serial_number', 'date', 'failure']) # we don't need these columns for training
+        label = label.drop(columns=['serial_number', 'date', 'failure']) 
         # now convert to torch tensors
         # return shape [input_len, num_features], [label_len, num_features]
         return torch.from_numpy(train.values).double(), torch.from_numpy(label.values).double()
@@ -365,24 +434,33 @@ def load_model(model_path, device=None, load_whole_model=True):
     else:
         # Assuming this is the case where we need to instantiate model first
         raise ValueError("When load_whole_model=False, you must instantiate the model first")
-    
-    # Load the metrics if they exist
+      # Load the metrics if they exist
     metrics_path = model_path.replace('.pth', '_metrics.json')
     metrics = None
     if os.path.exists(metrics_path):
         with open(metrics_path, 'r') as f:
             metrics = json.load(f)
             print(f"✅ Model metrics loaded from {metrics_path}")
-    
     return model, metrics
+
+
+def main():
+    """
+    Main function to execute the LSTM model training, evaluation, and CT analysis integration.
     
-if __name__ == '__main__':
+    This function handles the complete workflow:
+    1. Dataset loading and preprocessing
+    2. Model training with progress tracking
+    3. Model evaluation and testing
+    4. Prediction generation and visualization
+    5. CT analysis integration for drive failure analysis
+    """
 
     test_existing = False # Change to True to test existing model
     days_to_train = 3
     days_to_predict = 2
     look_back = days_to_train + days_to_predict
-    path = "data\\"
+    path = "data/data_Q1_2025"
     verbose = True
 
     dataset_train = CustomDrives(root=path, 
@@ -618,11 +696,188 @@ if __name__ == '__main__':
         'test_samples': len(test_predictions),
         'timestamp': datetime.now().isoformat()
     }
-    
-    # Save prediction metrics
+      # Save prediction metrics
     predictions_metrics_path = os.path.join(os.path.dirname(model_path), 'prediction_metrics.json')
     with open(predictions_metrics_path, 'w') as f:
         json.dump(final_metrics, f, indent=4)
-    
     print(f"✅ Final model evaluation completed. Results saved to {predictions_path}")
     print(f"✅ Prediction metrics saved to {predictions_metrics_path}")
+    
+    # Optional: Export predictions for CT analysis
+    export_for_ct = True  # Set to True to generate CT-compatible features
+    
+    if export_for_ct and model_exists:
+        print("\n🔗 Exporting LSTM predictions for CT analysis...")
+        try:
+            predictions_df, ct_features_df = export_for_ct_analysis(
+                model_path=model_path,
+                dataset_path=path,
+                output_dir="ct_analysis"
+            )
+            
+            if predictions_df is not None and ct_features_df is not None:
+                print("✅ LSTM predictions exported successfully for CT analysis!")
+                print(f"📁 Files saved in: ct_analysis/")
+                print(f"📊 Generated {len(ct_features_df)} drive-level features")
+                print("\n💡 To analyze these predictions with CT.py:")
+                print("   1. Set use_lstm_predictions = True in CT.py main()")
+                print("   2. Run CT.py to perform decision tree analysis on LSTM predictions")
+            else:
+                print("❌ Failed to export predictions for CT analysis")
+                
+        except Exception as e:
+            print(f"❌ Error exporting for CT analysis: {e}")
+    
+    print("\n🎉 LSTM analysis pipeline completed!")
+
+def generate_lstm_predictions(model_path, dataset_path, output_path="lstm_predictions.csv", device=None):
+    """
+    Generate LSTM predictions and save them in a format compatible with CT.py
+    
+    Args:
+        model_path (str): Path to the saved LSTM model
+        dataset_path (str): Path to the dataset for prediction
+        output_path (str): Path to save the predictions CSV file
+        device (torch.device): Device to run predictions on
+        
+    Returns:
+        pd.DataFrame: DataFrame with LSTM predictions and metadata
+    """
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # Load the trained model
+    try:
+        model, model_metrics = load_model(model_path, device, load_whole_model=True)
+        print(f"✅ Model loaded successfully from {model_path}")
+    except FileNotFoundError:
+        print(f"❌ Model not found at {model_path}")
+        return None
+      # Load dataset for prediction
+    days_to_train = model_metrics.get('days_to_train', 3) if model_metrics else 3
+    days_to_predict = model_metrics.get('days_to_predict', 2) if model_metrics else 2
+    
+    dataset = CustomDrives(root=dataset_path, 
+                          train=False, 
+                          input_len=days_to_train,
+                          label_len=days_to_predict,
+                          verbose=True)
+    
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+    
+    # Generate predictions
+    model.eval()
+    predictions_list = []
+    
+    print("Generating LSTM predictions...")
+    with torch.no_grad():
+        for idx, (input_data, target_data) in enumerate(tqdm(dataloader, desc="Making predictions")):
+            input_data = input_data.to(device)
+            
+            # Get prediction from LSTM
+            prediction = model(input_data)
+            prediction_np = prediction.cpu().numpy()[0]  # Remove batch dimension
+            
+            # Get the actual drive data to extract metadata
+            drive_data = dataset.dataset.data.get_group(dataset.dataset.list_of_keys[idx])
+            
+            # Create prediction entries for each predicted day
+            for day_idx in range(days_to_predict):
+                pred_entry = {
+                    'serial_number': dataset.dataset.list_of_keys[idx],
+                    'prediction_day': day_idx + 1,
+                    'lstm_prediction_score': float(np.mean(prediction_np[day_idx])),  # Average across features
+                    'lstm_max_feature': float(np.max(prediction_np[day_idx])),
+                    'lstm_min_feature': float(np.min(prediction_np[day_idx])),
+                    'lstm_std_feature': float(np.std(prediction_np[day_idx])),
+                }
+                
+                # Add individual feature predictions
+                feature_names = [f'smart_{i}_normalized' for i in [1, 3, 5, 7, 9, 187, 189, 190, 195, 197]] + ['smart_5_raw', 'smart_197_raw']
+                for feat_idx, feat_name in enumerate(feature_names[:prediction_np.shape[1]]):
+                    pred_entry[f'lstm_pred_{feat_name}'] = float(prediction_np[day_idx, feat_idx])
+                
+                predictions_list.append(pred_entry)
+    
+    # Convert to DataFrame and save
+    predictions_df = pd.DataFrame(predictions_list)
+    predictions_df.to_csv(output_path, index=False)
+    print(f"✅ LSTM predictions saved to {output_path}")
+    
+    return predictions_df
+
+def create_ct_compatible_features(lstm_predictions_df, threshold=0.5):
+    """
+    Convert LSTM predictions into features compatible with CT.py decision tree analysis
+    
+    Args:
+        lstm_predictions_df (pd.DataFrame): DataFrame with LSTM predictions
+        threshold (float): Threshold for converting predictions to binary features
+        
+    Returns:
+        pd.DataFrame: DataFrame with features compatible with CT.py format
+    """
+    # Group by serial number to create drive-level features
+    ct_features = []
+    
+    for serial_num, group in lstm_predictions_df.groupby('serial_number'):
+        # Aggregate predictions across prediction days
+        feature_dict = {
+            'serial_number': serial_num,
+            'lstm_avg_prediction': group['lstm_prediction_score'].mean(),
+            'lstm_max_prediction': group['lstm_prediction_score'].max(),
+            'lstm_min_prediction': group['lstm_prediction_score'].min(),
+            'lstm_prediction_variance': group['lstm_prediction_score'].var(),
+            'lstm_prediction_trend': group['lstm_prediction_score'].iloc[-1] - group['lstm_prediction_score'].iloc[0],
+            'lstm_high_risk_days': (group['lstm_prediction_score'] > threshold).sum(),
+            'lstm_anomaly_score': (group['lstm_std_feature'].mean()),
+            'failure': 0  # Default to 0, will be updated with actual failure data if available
+        }
+        
+        # Add aggregated SMART feature predictions
+        smart_features = [col for col in group.columns if col.startswith('lstm_pred_smart_')]
+        for feature in smart_features:
+            feature_name = feature.replace('lstm_pred_', '')
+            feature_dict[f'{feature_name}_lstm_avg'] = group[feature].mean()
+            feature_dict[f'{feature_name}_lstm_max'] = group[feature].max()
+            feature_dict[f'{feature_name}_lstm_trend'] = group[feature].iloc[-1] - group[feature].iloc[0]
+        
+        ct_features.append(feature_dict)
+    
+    ct_df = pd.DataFrame(ct_features)
+    return ct_df
+
+def export_for_ct_analysis(model_path, dataset_path, output_dir="ct_analysis", device=None):
+    """
+    Complete pipeline to export LSTM predictions for CT.py analysis
+    
+    Args:
+        model_path (str): Path to the saved LSTM model
+        dataset_path (str): Path to the dataset
+        output_dir (str): Directory to save analysis files
+        device (torch.device): Device to run predictions on
+        
+    Returns:
+        tuple: (predictions_df, ct_features_df) DataFrames for analysis
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Generate LSTM predictions
+    predictions_path = os.path.join(output_dir, "lstm_predictions.csv")
+    predictions_df = generate_lstm_predictions(model_path, dataset_path, predictions_path, device)
+    
+    if predictions_df is None:
+        return None, None
+      # Create CT-compatible features
+    ct_features_df = create_ct_compatible_features(predictions_df)
+    ct_features_path = os.path.join(output_dir, "ct_features.csv")
+    ct_features_df.to_csv(ct_features_path, index=False)
+    
+    print(f"✅ CT-compatible features saved to {ct_features_path}")
+    print(f"📊 Generated {len(ct_features_df)} drive-level feature sets for CT analysis")
+    
+    return predictions_df, ct_features_df
+
+
+if __name__ == '__main__':
+    main()
