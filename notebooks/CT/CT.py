@@ -872,10 +872,10 @@ def main():
     print("="*60)
     
     # Configuration options
-    use_lstm_predictions = True  # Set to True to analyze LSTM predictions
+    use_lstm_predictions = False  # Set to True to analyze LSTM predictions
     lstm_features_path = "ct_analysis/ct_features.csv"  # Path to LSTM-generated features
     smart_model_path = "models/LSTM/lstm_model.pth"     # Path to trained LSTM model
-    data_path = "../../data/data_Q1_2025"              # Path to dataset
+    data_path = "data"              # Path to dataset
     
     if use_lstm_predictions and os.path.exists(lstm_features_path):
         print("🔬 Running CT analysis on LSTM predictions...")

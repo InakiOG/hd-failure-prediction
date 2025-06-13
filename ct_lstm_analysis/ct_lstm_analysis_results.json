@@ -1,0 +1,224 @@
+{
+    "gini_accuracy": 1.0,
+    "entropy_accuracy": 1.0,
+    "feature_importance": [
+        {
+            "feature": "lstm_avg_prediction",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "lstm_max_prediction",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "lstm_min_prediction",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "lstm_prediction_variance",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "lstm_prediction_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "lstm_high_risk_days",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "lstm_anomaly_score",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_1_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_1_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_1_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_3_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_3_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_3_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_5_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_5_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_5_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_7_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_7_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_7_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_9_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_9_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_9_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_187_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_187_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_187_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_189_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_189_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_189_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_190_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_190_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_190_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_195_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_195_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_195_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_197_normalized_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_197_normalized_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_197_normalized_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_5_raw_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_5_raw_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_5_raw_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_197_raw_lstm_avg",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_197_raw_lstm_max",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        },
+        {
+            "feature": "smart_197_raw_lstm_trend",
+            "gini_importance": 0.0,
+            "entropy_importance": 0.0
+        }
+    ],
+    "feature_selection_method": "all",
+    "test_samples": 17558,
+    "analysis_timestamp": "2025-06-11T23:07:56.413804"
+}

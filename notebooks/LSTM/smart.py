@@ -525,7 +525,7 @@ def main():
     5. CT analysis integration for drive failure analysis
     """
     
-    test_existing = False # Change to True to test existing model
+    test_existing = True # Change to True to test existing model
     days_to_train = 3
     days_to_predict = 2
     look_back = days_to_train + days_to_predict
@@ -533,31 +533,29 @@ def main():
     verbose = True    # Create a single data loader that handles the train/test split properly
     print("🔄 Loading and splitting data to prevent data leakage...")
     min_sequence_length = days_to_train + days_to_predict
-    data_loader = DriveDataLoader(root=path, 
-                                 train_ratio=0.8, 
-                                 min_sequence_length=min_sequence_length,
-                                 verbose=verbose)
-    
-    # Create datasets using the pre-split data
-    dataset_train = CustomDrives(data_loader=data_loader,
-                                train=True, 
-                                input_len=days_to_train,
-                                label_len=days_to_predict,
-                                verbose=verbose)
 
-    dataset_test = CustomDrives(data_loader=data_loader,
-                               train=False, 
-                               input_len=days_to_train,
-                               label_len=days_to_predict,
-                               verbose=verbose)
-
-    train_loader = DataLoader(dataset_train, batch_size=3, shuffle=True)
-
-    test_loader = DataLoader(dataset_test, batch_size=3, shuffle=True)
+    train_loader, test_loader = load_data(root=path,
+                                         train_ratio=0.8, 
+                                         min_sequence_length=min_sequence_length,
+                                         input_len=days_to_train,
+                                         label_len=days_to_predict,
+                                         verbose=verbose)
 
     num_features = 12
     n_neurons = 4
 
+    # Check if trained model exists
+    model_path = 'models/LSTM/lstm_model.pth'
+
+    train_model(features = num_features,
+                n_neurons = n_neurons,
+                model_path = model_path,
+                days_to_predict = days_to_predict,
+                days_to_train = days_to_train,
+                train_loader = train_loader,
+                test_loader = test_loader,
+                test_existing = test_existing)
+    
     # Check if GPU is available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using device: {device}')
@@ -575,8 +573,7 @@ def main():
 
     loss_curve = []
     minimum_loss = np.inf
-      # Check if trained model exists
-    model_path = 'models/LSTM/lstm_model.pth'
+
     joblib_path = model_path.replace('.pth', '.joblib')
     model_exists = os.path.exists(joblib_path) or os.path.exists(model_path)
     
