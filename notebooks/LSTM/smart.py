@@ -488,9 +488,7 @@ def load_model(model_path, device=None, load_whole_model=True):
     Returns:
         tuple: (loaded_model, metrics_dict) if metrics file exists
     """
-    if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if load_whole_model:
         # Use joblib to load the entire model
         joblib_path = model_path.replace('.pth', '.joblib')
@@ -512,58 +510,129 @@ def load_model(model_path, device=None, load_whole_model=True):
             print(f"✅ Model metrics loaded from {metrics_path}")
     return model, metrics
 
-
-def main():
+def test_lstm_model(model, test_loader, device=None, loss_function=None, verbose=True):
     """
-    Main function to execute the LSTM model training, evaluation, and CT analysis integration.
+    Test the LSTM model on a given test_loader and return predictions, targets, and metrics.
     
-    This function handles the complete workflow:
-    1. Dataset loading and preprocessing
-    2. Model training with progress tracking
-    3. Model evaluation and testing
-    4. Prediction generation and visualization
-    5. CT analysis integration for drive failure analysis
+    Args:
+        model (nn.Module): Trained LSTM model
+        test_loader (DataLoader): DataLoader for test data
+        device (torch.device): Device to run the model on
+        loss_function: Loss function to use (default: nn.MSELoss)
+        verbose (bool): Whether to print progress
+    Returns:
+        dict: Dictionary with predictions, targets, and evaluation metrics
     """
-    
-    test_existing = True # Change to True to test existing model
-    days_to_train = 3
-    days_to_predict = 2
-    look_back = days_to_train + days_to_predict
-    path = "data/data_test"
-    verbose = True    # Create a single data loader that handles the train/test split properly
-    print("🔄 Loading and splitting data to prevent data leakage...")
-    min_sequence_length = days_to_train + days_to_predict
-
-    train_loader, test_loader = load_data(root=path,
-                                         train_ratio=0.8, 
-                                         min_sequence_length=min_sequence_length,
-                                         input_len=days_to_train,
-                                         label_len=days_to_predict,
-                                         verbose=verbose)
-
-    num_features = 12
-    n_neurons = 4
-
-    # Check if trained model exists
-    model_path = 'models/LSTM/lstm_model.pth'
-
-    train_model(features = num_features,
-                n_neurons = n_neurons,
-                model_path = model_path,
-                days_to_predict = days_to_predict,
-                days_to_train = days_to_train,
-                train_loader = train_loader,
-                test_loader = test_loader,
-                test_existing = test_existing)
-    
     # Check if GPU is available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f'Using device: {device}')
+    
+    if loss_function is None:
+        loss_function = nn.MSELoss()
+    
+    model = model.to(device)
+    model.eval()
+    
+    all_predictions = []
+    all_targets = []
+    total_loss = 0
+    num_batches = 0
 
-    model = Net(n_neurons, num_features, days_to_predict).double()
+    with torch.no_grad():
+        for test_data, test_labels in tqdm(test_loader, desc="Testing Model", leave=False):
+            test_data, test_labels = test_data.to(device), test_labels.to(device)
+            predictions = model(test_data)
+            loss = loss_function(predictions, test_labels)
+            
+            all_predictions.append(predictions.cpu().numpy())
+            all_targets.append(test_labels.cpu().numpy())
+            
+            total_loss += loss.item()
+            num_batches += 1
+            
+            if verbose:
+                tqdm.write(f"Batch Loss: {loss.item():.6f}")
+    
+    avg_loss = total_loss / num_batches if num_batches > 0 else 0
+    all_predictions = np.concatenate(all_predictions, axis=0)
+    all_targets = np.concatenate(all_targets, axis=0)
+    
+    # Calculate additional metrics if needed
+    metrics = {
+        'average_loss': avg_loss,
+        # Add more metrics here if needed
+    }
+    
+    return {
+        'predictions': all_predictions,
+        'targets': all_targets,
+        'metrics': metrics
+    }
+
+def load_data(root: str, 
+              train_ratio: float = 0.8, 
+              min_sequence_length: int = 5,
+              input_len: int = 3,
+              label_len: int = 1,
+              verbose: bool = False):
+    """
+    Load and preprocess data for training and testing.
+    """
+    data_loader = DriveDataLoader(root=root, 
+                                 train_ratio=train_ratio, 
+                                 min_sequence_length=min_sequence_length,
+                                 verbose=verbose)
+    
+    # Create datasets using the pre-split data
+    dataset_train = CustomDrives(data_loader=data_loader,
+                                train=True, 
+                                input_len=input_len,
+                                label_len=label_len,
+                                verbose=verbose)
+
+    dataset_test = CustomDrives(data_loader=data_loader,
+                               train=False, 
+                               input_len=input_len,
+                               label_len=label_len,
+                               verbose=verbose)
+
+    train_loader = DataLoader(dataset_train, batch_size=3, shuffle=True)
+
+    test_loader = DataLoader(dataset_test, batch_size=3, shuffle=True)
+    return train_loader, test_loader
+
+def train_model(features, n_neurons, model_path, days_to_predict, days_to_train, train_loader, test_loader, test_existing=False, learning_rate=0.001, num_epochs=1, device=None):
+    """
+    Trains an LSTM-based neural network model for time series prediction, with support for model checkpointing, 
+    validation, and optional testing of existing models.
+    This function handles the full training loop, including loading an existing model if available, 
+    training from scratch if not, validating after each epoch, and saving the best-performing model 
+    based on validation loss. It also supports evaluation of a previously trained model without retraining.
+    Args:
+        features (int): Number of input features for the model.
+        n_neurons (int): Number of neurons in the LSTM layer.
+        model_path (str): Path to save or load the model checkpoint.
+        days_to_predict (int): Number of future days to predict.
+        days_to_train (int): Number of past days used for training input.
+        train_loader (DataLoader): PyTorch DataLoader for training data.
+        test_loader (DataLoader): PyTorch DataLoader for validation/testing data.
+        test_existing (bool, optional): If True, loads and evaluates an existing model without retraining. Defaults to False.
+        learning_rate (float, optional): Learning rate for the optimizer. Defaults to 0.001.
+        num_epochs (int, optional): Number of training epochs. Defaults to 1.
+        device (torch.device, optional): Device to run the model on ('cuda' or 'cpu'). If None, automatically selects GPU if available.
+    Returns:
+        model (torch.nn.Module): The trained or loaded model.
+        model_exists (bool): True if a saved model was found and loaded, False if training was performed from scratch.
+    Notes:
+        - The function saves the best model (with lowest validation loss) during training.
+        - Loss curves are plotted and saved to disk for monitoring training progress.
+        - If `test_existing` is True and a model checkpoint exists, the function skips training and only evaluates the model.
+    """
+    # Check if GPU is available
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    model = Net(n_neurons, features, days_to_predict).double()
     loss_function = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    num_epochs = 1
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # Move model to device
     model = model.to(device)
@@ -680,7 +749,7 @@ def main():
                     'optimizer': optimizer.__class__.__name__,
                     'learning_rate': optimizer.param_groups[0]['lr'],
                     'n_neurons': n_neurons,
-                    'features': num_features,
+                    'features': features,
                     'days_to_predict': days_to_predict,
                     'days_to_train': days_to_train,
                     'device': str(device)
@@ -702,6 +771,7 @@ def main():
                 ax.set_title("Training Progress")
                 plt.savefig(f'loss_epoch_{epoch+1}.png')
                 plt.close()  # Close the figure to free memory    # Generate final plots and predictions
+
     if loss_curve:  # Only plot if we have training data
         fig, ax = plt.subplots(1, 1, figsize=(15, 5))
         ax.plot(loss_curve, lw=2)
@@ -715,6 +785,59 @@ def main():
         plt.savefig(plot_path)
         print(f"✅ Final loss curve saved to {plot_path}")
         plt.close()
+
+    return model, model_exists
+
+
+def main():
+    """
+    Main function to execute the LSTM model training, evaluation, and CT analysis integration.
+    
+    This function handles the complete workflow:
+    1. Dataset loading and preprocessing
+    2. Model training with progress tracking
+    3. Model evaluation and testing
+    4. Prediction generation and visualization
+    5. CT analysis integration for drive failure analysis
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    test_existing = True # Change to True to test existing model
+    days_to_train = 3
+    days_to_predict = 2
+    look_back = days_to_train + days_to_predict
+    path = "data/data_test"
+    verbose = True    # Create a single data loader that handles the train/test split properly
+    print(f'Using device: {device}')
+    
+    print("🔄 Loading and splitting data to prevent data leakage...")
+    min_sequence_length = days_to_train + days_to_predict
+
+    train_loader, test_loader = load_data(root=path,
+                                         train_ratio=0.8, 
+                                         min_sequence_length=min_sequence_length,
+                                         input_len=days_to_train,
+                                         label_len=days_to_predict,
+                                         verbose=verbose)
+
+    num_features = 12
+    n_neurons = 4
+    num_epochs = 1
+    learning_rate = 0.001
+
+    # Check if trained model exists
+    model_path = 'models/LSTM/lstm_model.pth'
+
+    model, model_exists = train_model(features = num_features,
+                n_neurons = n_neurons,
+                model_path = model_path,
+                days_to_predict = days_to_predict,
+                days_to_train = days_to_train,
+                train_loader = train_loader,
+                test_loader = test_loader,
+                test_existing = test_existing,
+                learning_rate = learning_rate,
+                num_epochs = num_epochs)
 
     # Generate predictions on test set
     model.eval()
@@ -779,6 +902,7 @@ def main():
     # Optional: Export predictions for CT analysis
     export_for_ct = True  # Set to True to generate CT-compatible features
     
+    
     if export_for_ct and model_exists:
         print("\n🔗 Exporting LSTM predictions for CT analysis...")
         try:
@@ -816,10 +940,9 @@ def generate_lstm_predictions(model_path, dataset_path, output_path="lstm_predic
     Returns:
         pd.DataFrame: DataFrame with LSTM predictions and metadata
     """
-    if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
     # Load the trained model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     try:
         model, model_metrics = load_model(model_path, device, load_whole_model=True)
         print(f"✅ Model loaded successfully from {model_path}")
