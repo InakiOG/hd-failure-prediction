@@ -1,0 +1,14 @@
+{
+    "val_loss": 59516.94609691401,
+    "train_loss": 71210.8481614113,
+    "epoch": 1,
+    "total_epochs": 1,
+    "optimizer": "Adam",
+    "learning_rate": 0.001,
+    "n_neurons": 4,
+    "features": 12,
+    "days_to_predict": 2,
+    "days_to_train": 3,
+    "device": "cuda",
+    "timestamp": "2025-06-15T22:06:35.805059"
+}

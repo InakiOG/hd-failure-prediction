@@ -958,8 +958,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    # Integrated LSTM + CT Analysis (uncomment to run)
-    # smart_model_path = "path_to_your_trained_lstm_model"
-    # dataset_path = "data"
-    # integrated_results = run_integrated_lstm_ct_analysis(smart_model_path, dataset_path, output_dir="integrated_analysis")
