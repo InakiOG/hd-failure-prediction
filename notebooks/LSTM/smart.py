@@ -499,7 +499,7 @@ def load_model(model_path, device=None, load_whole_model=True):
         else:
             raise FileNotFoundError(f"Model file not found: {joblib_path}")
     else:
-        # Assuming this is the case where we need to instantiate model first
+        # Assuming this is the case where we need to instantiate the model first
         raise ValueError("When load_whole_model=False, you must instantiate the model first")
       # Load the metrics if they exist
     metrics_path = model_path.replace('.pth', '_metrics.json')
@@ -927,79 +927,100 @@ def main():
     
     print("\n🎉 LSTM analysis pipeline completed!")
 
-def generate_lstm_predictions(model_path, dataset_path, output_path="lstm_predictions.csv", device=None):
+def generate_lstm_predictions(
+    model_path,
+    dataset_path,
+    output_path="lstm_predictions.csv",
+    device=None,
+    min_days_per_drive=5,
+    days_to_predict=2,
+    num_drives_to_predict=100
+):
     """
-    Generate LSTM predictions and save them in a format compatible with CT.py
-    
+    Generate LSTM predictions for a random subset of drives with at least min_days_per_drive days.
     Args:
         model_path (str): Path to the saved LSTM model
         dataset_path (str): Path to the dataset for prediction
         output_path (str): Path to save the predictions CSV file
         device (torch.device): Device to run predictions on
-        
+        min_days_per_drive (int): Minimum number of days required for a drive to be included
+        days_to_predict (int): Number of days the model will predict
+        num_drives_to_predict (int): Number of random drives to predict
     Returns:
         pd.DataFrame: DataFrame with LSTM predictions and metadata
     """
-    # Load the trained model
+    import random
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     try:
         model, model_metrics = load_model(model_path, device, load_whole_model=True)
         print(f"✅ Model loaded successfully from {model_path}")
     except FileNotFoundError:
         print(f"❌ Model not found at {model_path}")
         return None
-      # Load dataset for prediction
-    days_to_train = model_metrics.get('days_to_train', 3) if model_metrics else 3
-    days_to_predict = model_metrics.get('days_to_predict', 2) if model_metrics else 2
-    
-    dataset = CustomDrives(root=dataset_path, 
-                          train=False, 
-                          input_len=days_to_train,
-                          label_len=days_to_predict,
-                          verbose=True)
-    
+
+    # Load all data and filter drives with at least min_days_per_drive days
+    all_data = []
+    for f in os.listdir(dataset_path):
+        if f.endswith('.csv'):
+            df = clean_data_smart(pd.read_csv(os.path.join(dataset_path, f), dtype=dtype_dict))
+            all_data.append(df)
+    all_data = pd.concat(all_data)
+    all_data.sort_values(by=['serial_number', 'date'], ascending=[True, True], inplace=True)
+    grouped = all_data.groupby('serial_number')
+    valid_drives = [sn for sn, group in grouped if len(group) >= min_days_per_drive]
+    print(f"Found {len(valid_drives)} drives with at least {min_days_per_drive} days.")
+    if len(valid_drives) == 0:
+        print("No drives meet the minimum days requirement.")
+        return None
+    # Randomly select drives
+    selected_drives = random.sample(valid_drives, min(num_drives_to_predict, len(valid_drives)))
+    print(f"Selected {len(selected_drives)} drives for prediction.")
+    # Build a DataFrame with only the selected drives
+    selected_data = all_data[all_data['serial_number'].isin(selected_drives)]
+    # Build a CustomDrives dataset for just these drives
+    class CustomDrivesSubset(Dataset):
+        def __init__(self, data, input_len, label_len):
+            self.input_len = input_len
+            self.label_len = label_len
+            self.data = data.groupby('serial_number')
+            self.list_of_keys = list(self.data.groups.keys())
+        def __len__(self):
+            return len(self.list_of_keys)
+        def __getitem__(self, idx):
+            values = self.data.get_group(self.list_of_keys[idx])
+            train = values.iloc[:self.input_len]
+            label = values.iloc[self.input_len:self.input_len + self.label_len]
+            train = train.drop(columns=['serial_number', 'date', 'failure'])
+            label = label.drop(columns=['serial_number', 'date', 'failure'])
+            return torch.from_numpy(train.values).double(), torch.from_numpy(label.values).double()
+    dataset = CustomDrivesSubset(selected_data, min_days_per_drive - days_to_predict, days_to_predict)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
-    
     # Generate predictions
     model.eval()
     predictions_list = []
-    
     print("Generating LSTM predictions...")
     with torch.no_grad():
         for idx, (input_data, target_data) in enumerate(tqdm(dataloader, desc="Making predictions")):
             input_data = input_data.to(device)
-            
-            # Get prediction from LSTM
             prediction = model(input_data)
-            prediction_np = prediction.cpu().numpy()[0]  # Remove batch dimension
-            
-            # Get the actual drive data to extract metadata
-            drive_data = dataset.dataset.data.get_group(dataset.dataset.list_of_keys[idx])
-            
-            # Create prediction entries for each predicted day
+            prediction_np = prediction.cpu().numpy()[0]
+            drive_serial = selected_drives[idx]
             for day_idx in range(days_to_predict):
                 pred_entry = {
-                    'serial_number': dataset.dataset.list_of_keys[idx],
+                    'serial_number': drive_serial,
                     'prediction_day': day_idx + 1,
-                    'lstm_prediction_score': float(np.mean(prediction_np[day_idx])),  # Average across features
+                    'lstm_prediction_score': float(np.mean(prediction_np[day_idx])),
                     'lstm_max_feature': float(np.max(prediction_np[day_idx])),
                     'lstm_min_feature': float(np.min(prediction_np[day_idx])),
                     'lstm_std_feature': float(np.std(prediction_np[day_idx])),
                 }
-                
-                # Add individual feature predictions
                 feature_names = [f'smart_{i}_normalized' for i in [1, 3, 5, 7, 9, 187, 189, 190, 195, 197]] + ['smart_5_raw', 'smart_197_raw']
                 for feat_idx, feat_name in enumerate(feature_names[:prediction_np.shape[1]]):
                     pred_entry[f'lstm_pred_{feat_name}'] = float(prediction_np[day_idx, feat_idx])
-                
                 predictions_list.append(pred_entry)
-    
-    # Convert to DataFrame and save
     predictions_df = pd.DataFrame(predictions_list)
     predictions_df.to_csv(output_path, index=False)
     print(f"✅ LSTM predictions saved to {output_path}")
-    
     return predictions_df
 
 def create_ct_compatible_features(lstm_predictions_df, threshold=0.5):
