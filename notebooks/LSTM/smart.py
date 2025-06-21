@@ -99,8 +99,6 @@ class DriveDataLoader:
             raise FileNotFoundError(msg)
         
         if num_drives > 0:
-            self._load_all_data()
-
             self._get_drives(num_drives, min_sequence_length)
         else:
             # Load all data
@@ -109,14 +107,13 @@ class DriveDataLoader:
             self._split_drives(min_sequence_length)
     
     def _get_drives(self, num_drives, min_sequence_length):
-        """Get a list of drives to use for training/testing."""
         self._load_all_data()
         grouped = self.all_data.groupby('serial_number')
-        valid_drives = [sn for sn, group in grouped if len(group) >= min_sequence_length]
-        if self.verbose:
-            print(f'[DriveDataLoader] Found {len(valid_drives)} valid drives.')
-        # Limit to the specified number of drives
-        return valid_drives[:num_drives]
+        valid_drives = [k for k, v in grouped.size().items() if v >= min_sequence_length]
+        if len(valid_drives) < num_drives:
+            raise ValueError(f"Requested {num_drives} drives, but only {len(valid_drives)} drives meet the minimum sequence length of {min_sequence_length}.")
+        selected_drives = random.sample(valid_drives, num_drives)
+        self.all_data = self.all_data[self.all_data['serial_number'].isin(selected_drives)]
 
     def _load_all_data(self):
         """Load all CSV files and concatenate them."""
@@ -259,6 +256,10 @@ class DriveDataLoader:
     def get_test_data(self):
         """Get data for testing drives only."""
         return self.all_data[self.all_data['serial_number'].isin(self.test_drives)]
+    
+    def get_all_data(self):
+        """Get all data regardless of train/test split."""
+        return self.all_data
 
 class _CustomDrives(Dataset):
     """
