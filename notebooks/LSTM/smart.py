@@ -107,6 +107,8 @@ class DriveDataLoader:
             self._split_drives(min_sequence_length)
     
     def _get_drives(self, num_drives, min_sequence_length):
+        if self.verbose:
+            print(f'[DriveDataLoader] Loading drives with at least {min_sequence_length} days of data...')
         self._load_all_data()
         grouped = self.all_data.groupby('serial_number')
         valid_drives = [k for k, v in grouped.size().items() if v >= min_sequence_length]
@@ -114,6 +116,9 @@ class DriveDataLoader:
             raise ValueError(f"Requested {num_drives} drives, but only {len(valid_drives)} drives meet the minimum sequence length of {min_sequence_length}.")
         selected_drives = random.sample(valid_drives, num_drives)
         self.all_data = self.all_data[self.all_data['serial_number'].isin(selected_drives)]
+        if self.verbose:
+            print(f'[DriveDataLoader] Selected {len(selected_drives)} drives for processing.')
+            print(f'[DriveDataLoader] Total rows in selected drives: {len(self.all_data)}')
 
     def _load_all_data(self):
         """Load all CSV files and concatenate them."""
