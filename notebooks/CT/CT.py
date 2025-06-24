@@ -215,21 +215,17 @@ def splitdataset(balance_data):
     Y = Y.astype('bool')
     # Splitting the dataset into train and test
     X_train, X_test, y_train, y_test = train_test_split(
-        X, Y, test_size=0.3, random_state=100)
+        X, Y, test_size=0.3, random_state=42)
 
     # Apply SMOTE to the training data
-    smote = SMOTE(random_state=100)
+    smote = SMOTE(random_state=42)
     X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
 
     print("x_train (after SMOTE):", X_train_res)
     print("y_train (after SMOTE):", np.max(y_train_res), np.count_nonzero(y_train_res == 1), len(y_train_res))
     return X, Y, X_train_res, X_test, y_train_res, y_test
 
-# Decision tree parameters
-depth = 100 
-leaf = 15
-
-def train_using_gini(X_train, X_test, y_train):
+def train_using_gini(X_train, X_test, y_train, depth=100, leaf=15):
     """
     Train a Decision Tree classifier using the Gini impurity criterion.
     
@@ -240,19 +236,21 @@ def train_using_gini(X_train, X_test, y_train):
         X_train (array-like): Training feature data
         X_test (array-like): Test feature data (not used in training but kept for consistency)
         y_train (array-like): Training target labels
-        
+        depth (int): Maximum depth of the tree
+        leaf (int): Minimum samples per leaf
+    
     Returns:
         DecisionTreeClassifier: Trained decision tree classifier using Gini criterion
     """
     # Creating the classifier object
     clf_gini = DecisionTreeClassifier(criterion="gini",
-                                      random_state=100, max_depth=depth, min_samples_leaf=leaf)
+                                      random_state=42, max_depth=depth, min_samples_leaf=leaf)
 
     # Performing training
     clf_gini.fit(X_train, y_train)
     return clf_gini
 
-def train_using_entropy(X_train, X_test, y_train):
+def train_using_entropy(X_train, X_test, y_train, depth=100, leaf=15):
     """
     Train a Decision Tree classifier using the entropy criterion.
     
@@ -263,13 +261,15 @@ def train_using_entropy(X_train, X_test, y_train):
         X_train (array-like): Training feature data
         X_test (array-like): Test feature data (not used in training but kept for consistency)
         y_train (array-like): Training target labels
-        
+        depth (int): Maximum depth of the tree
+        leaf (int): Minimum samples per leaf
+    
     Returns:
         DecisionTreeClassifier: Trained decision tree classifier using entropy criterion
     """
     # Decision tree with entropy
     clf_entropy = DecisionTreeClassifier(
-        criterion="entropy", random_state=100,
+        criterion="entropy", random_state=42,
         max_depth=depth, min_samples_leaf=leaf)
 
     # Performing training
@@ -577,15 +577,17 @@ def log_model_performance(model_name, accuracy, params):
 
 
 def main():
+    depth=100
+    leaf=15
     data_path = "data/data_test"
     data = importdata(data_path)
 
     # Split dataset and apply SMOTE
     X, Y, X_train_res, X_test, y_train_res, y_test = splitdataset(data)
     print("\nTraining Decision Tree with Gini criterion...")
-    clf_gini = train_using_gini(X_train_res, X_test, y_train_res)
+    clf_gini = train_using_gini(X_train_res, X_test, y_train_res, depth=depth, leaf=leaf)
     print("\nTraining Decision Tree with Entropy criterion...")
-    clf_entropy = train_using_entropy(X_train_res, X_test, y_train_res)
+    clf_entropy = train_using_entropy(X_train_res, X_test, y_train_res, depth=depth, leaf=leaf)
     print("\n" + "="*50)
     print("Results Using Gini Index:")
     print("="*50)
