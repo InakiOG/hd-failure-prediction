@@ -14,6 +14,7 @@ from tqdm import tqdm
 import joblib
 import json
 from datetime import datetime
+from sklearn.model_selection import GridSearchCV
 
 def process_chunks(file_path):
     """
@@ -105,6 +106,7 @@ def getdata(folder_path):
         for subfolder in tqdm(subfolders, desc="Processing subfolders"):
             for file_name in tqdm(os.listdir(subfolder), desc=f"Processing files in {subfolder}"):
                 if file_name.endswith(".csv"):
+                    # print(f"Processing file: {file_name} in subfolder: {subfolder}")
                     file_path = os.path.join(subfolder, file_name)
                     df = pd.concat([df, process_chunks(file_path)])
                     # print(file_path, ' done')
@@ -575,18 +577,42 @@ def log_model_performance(model_name, accuracy, params):
     
     print(f"Logged model performance to {log_file}")
 
+def grid_search_decision_tree(X, y):
+    """
+    Perform grid search to find the best max_depth and min_samples_leaf for DecisionTreeClassifier (Gini).
+    Args:
+        X: Features
+        y: Labels
+    Returns:
+        dict: Best parameters
+        float: Best score
+    """
+    param_grid = {
+        'max_depth': [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, None],
+        'min_samples_leaf': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100]
+    }
+    clf = DecisionTreeClassifier(criterion="gini", random_state=42)
+    grid_search = GridSearchCV(clf, param_grid, cv=3, scoring='accuracy', n_jobs=-1)
+    grid_search.fit(X, y)
+    print(f"Best parameters from grid search: {grid_search.best_params_}")
+    print(f"Best cross-validated accuracy: {grid_search.best_score_:.4f}")
+    return grid_search.best_params_, grid_search.best_score_
 
 def main():
-    depth=100
-    leaf=15
-    data_path = "data/data_test"
+    data_path = "data"
     data = importdata(data_path)
 
     # Split dataset and apply SMOTE
     X, Y, X_train_res, X_test, y_train_res, y_test = splitdataset(data)
-    print("\nTraining Decision Tree with Gini criterion...")
+
+    # Grid search for best hyperparameters (Gini)
+    print("\nPerforming grid search for Decision Tree (Gini)...")
+    best_params, best_score = grid_search_decision_tree(X_train_res, y_train_res)
+    depth = best_params['max_depth']
+    leaf = best_params['min_samples_leaf']
+    print(f"\nTraining Decision Tree with Gini criterion (best params: depth={depth}, leaf={leaf})...")
     clf_gini = train_using_gini(X_train_res, X_test, y_train_res, depth=depth, leaf=leaf)
-    print("\nTraining Decision Tree with Entropy criterion...")
+    print("\nTraining Decision Tree with Entropy criterion (using same best params)...")
     clf_entropy = train_using_entropy(X_train_res, X_test, y_train_res, depth=depth, leaf=leaf)
     print("\n" + "="*50)
     print("Results Using Gini Index:")
