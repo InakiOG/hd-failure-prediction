@@ -42,7 +42,7 @@ def clean_data_drives(df):
 
     return df
 
-def clean_data_smart(df):
+def clean_data_smart(df, normalized_rows, raw_rows):
     """
     Clean and preprocess hard drive data for SMART attribute analysis.
     
@@ -57,13 +57,19 @@ def clean_data_smart(df):
     Returns:
         pd.DataFrame: Cleaned DataFrame with only selected SMART attributes 
     """
+    df.head()
+    # TODO: CHECK IF DELETING FAILURE ITS OKAY
     columns_to_delete = ['model','capacity_bytes','datacenter','cluster_id','vault_id','pod_id','pod_slot_num','is_legacy_format']
-    smart_allowed = ['date', 'serial_number']
-    rows_allowed = [1, 3, 5, 7, 9, 187, 189, 190, 195, 197] # https://www.cropel.com/library/smart-attribute-list.aspx (Interestingly the chosen attributes from RNN paper and CT paper are the same)
-    for i in rows_allowed: smart_allowed.append(f'smart_{i}_normalized')
-    for column in df.columns:
-        if column != 'failure' and column not in smart_allowed and column != "smart_5_raw" and column != "smart_197_raw":
-            columns_to_delete.append(column)
+    smart_allowed = ['date', 'serial_number', 'failure']
+    for i in normalized_rows: 
+        smart_allowed.append(f'smart_{i}_normalized')
+    for i in raw_rows:
+        smart_allowed.append(f'smart_{i}_raw')
+
+    if len(normalized_rows) > 0:
+        for column in df.columns:
+            if column not in smart_allowed:
+                columns_to_delete.append(column)
 
     df = df.drop(columns=columns_to_delete)
     df = df.fillna(0)
@@ -79,7 +85,7 @@ class DriveDataLoader:
     This class loads all data once and creates separate train/test splits based on drive serial numbers,    ensuring that no drive appears in both training and testing sets.
     """
     
-    def __init__(self, root: str, train_ratio: float = 0.8, min_sequence_length: int = 5, verbose: bool = False, num_drives = -1):
+    def __init__(self, root: str, train_ratio: float = 0.8, min_sequence_length: int = 5, verbose: bool = False, num_drives = -1, normalized_rows = [], raw_rows = []):
         """
         Initialize the data loader and perform the train/test split.
         
@@ -93,6 +99,9 @@ class DriveDataLoader:
         self.train_ratio = train_ratio
         self.min_sequence_length = min_sequence_length
         self.verbose = verbose
+        self.num_drives = num_drives
+        self.normalized_rows = normalized_rows
+        self.raw_rows = raw_rows
         
         if not os.path.isdir(self.dataset_path):
             msg = f'Could not find the csv files in {self.dataset_path}.'
@@ -143,7 +152,7 @@ class DriveDataLoader:
                         if f.endswith(".csv")]
 
         for file_name in tqdm(csv_files, desc="Loading CSV files"):
-            df = clean_data_smart(pd.read_csv(file_name, dtype=dtype_dict))
+            df = clean_data_smart(pd.read_csv(file_name, dtype=dtype_dict), self.normalized_rows, self.raw_rows)
             data.append(df)
             if self.verbose:
                 print(f'Loaded {file_name} with shape {df.shape}')
@@ -595,6 +604,8 @@ def load_data(root: str,
               min_sequence_length: int = 5,
               input_len: int = 3,
               label_len: int = 1,
+              normalized_rows: list = [],
+              raw_rows: list = [],
               verbose: bool = False):
     """
     Load and preprocess data for training and testing.
@@ -602,6 +613,8 @@ def load_data(root: str,
     data_loader = DriveDataLoader(root=root, 
                                  train_ratio=train_ratio, 
                                  min_sequence_length=min_sequence_length,
+                                 normalized_rows=normalized_rows,
+                                 raw_rows=raw_rows,
                                  verbose=verbose)
     
     # Create datasets using the pre-split data
@@ -840,6 +853,8 @@ def main():
                                          min_sequence_length=min_sequence_length,
                                          input_len=days_to_train,
                                          label_len=days_to_predict,
+                                         normalized_rows = [1, 3, 5, 7, 9, 187, 189, 190, 195, 197],
+                                         raw_rows = [5, 197],
                                          verbose=verbose)
 
     num_features = 12

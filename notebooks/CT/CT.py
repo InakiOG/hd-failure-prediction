@@ -16,7 +16,7 @@ import json
 from datetime import datetime
 from sklearn.model_selection import GridSearchCV
 
-def process_chunks(file_path):
+def process_chunks(file_path, normalized_rows, raw_rows):
     """
     Process large CSV files in chunks to handle memory constraints.
     
@@ -34,13 +34,13 @@ def process_chunks(file_path):
     aggregated_result = pd.DataFrame()
 
     for chunk in pd.read_csv(file_path, chunksize=chunksize, dtype=dtype_dict):
-        chunk = cleandata_smart(chunk)
+        chunk = cleandata_smart(chunk, normalized_rows, raw_rows)
         
         aggregated_result = pd.concat([aggregated_result, chunk])
 
     return aggregated_result
 
-def cleandata_smart(df):
+def cleandata_smart(df, normalized_rows, raw_rows):
     """
     Clean and preprocess hard drive data for SMART analysis.
     
@@ -56,13 +56,17 @@ def cleandata_smart(df):
     """
     df.head()
     columns_to_delete = ['date','serial_number','model','capacity_bytes','datacenter','cluster_id','vault_id','pod_id','pod_slot_num','is_legacy_format']
+
     smart_allowed = []
-    rows_allowed = [1, 3, 5, 7, 9, 187, 189, 190, 195, 197]
-    for i in rows_allowed: 
+    for i in normalized_rows: 
         smart_allowed.append(f'smart_{i}_normalized')
-    for column in df.columns:
-        if column != 'failure' and column not in smart_allowed and column != "smart_5_raw" and column != "smart_197_raw":
-            columns_to_delete.append(column)
+    for i in raw_rows:
+        smart_allowed.append(f'smart_{i}_raw')
+
+    if len(normalized_rows) > 0:
+        for column in df.columns:
+            if column != 'failure' and column not in smart_allowed:
+                columns_to_delete.append(column)
 
     df = df.drop(columns=columns_to_delete)
     df = df.fillna(0)
@@ -78,7 +82,7 @@ def cleandata_smart(df):
     df = result_df
     return df
 
-def getdata(folder_path):
+def getdata(folder_path, normalized_rows, raw_rows):
     """
     Load and process all CSV files from a specified folder or from subfolders.
 
@@ -99,7 +103,7 @@ def getdata(folder_path):
     # If there are CSV files directly in the folder, process them
     if csv_files:
         for file_path in tqdm(csv_files, desc="Processing CSV files"):
-            df = pd.concat([df, process_chunks(file_path)])
+            df = pd.concat([df, process_chunks(file_path, normalized_rows, raw_rows)])
             # print(file_path, ' done')
     # Otherwise, process each subfolder for CSV files
     else:
@@ -108,7 +112,7 @@ def getdata(folder_path):
                 if file_name.endswith(".csv"):
                     # print(f"Processing file: {file_name} in subfolder: {subfolder}")
                     file_path = os.path.join(subfolder, file_name)
-                    df = pd.concat([df, process_chunks(file_path)])
+                    df = pd.concat([df, process_chunks(file_path, normalized_rows, raw_rows)])
                     # print(file_path, ' done')
     return df
 
@@ -172,7 +176,7 @@ def cleandata_smart_balanced(df):
     return df
 
 # Function to import the dataset
-def importdata(path):
+def importdata(path, normalized_rows = [], raw_rows = []):
     """
     Import and prepare the dataset for analysis.
     
@@ -183,7 +187,7 @@ def importdata(path):
         pd.DataFrame: Processed and balanced dataset ready for analysis
     """
     folder_path = path
-    original_df = getdata(folder_path)
+    original_df = getdata(folder_path, normalized_rows, raw_rows)
     balance_data = original_df
     # Displaying dataset information
     print("Dataset Length: ", len(balance_data))
@@ -599,8 +603,10 @@ def grid_search_decision_tree(X, y):
     return grid_search.best_params_, grid_search.best_score_
 
 def main():
-    data_path = "data"
-    data = importdata(data_path)
+    data_path = "data/data_test"
+    normalized_rows = [1, 3, 5, 7, 9, 187, 189, 190, 195, 197]
+    raw_rows = [5, 197]
+    data = importdata(data_path, normalized_rows, raw_rows)
 
     # Split dataset and apply SMOTE
     X, Y, X_train_res, X_test, y_train_res, y_test = splitdataset(data)
