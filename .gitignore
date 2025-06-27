@@ -3,3 +3,10 @@ data/*
 # But do not ignore README or README.*
 !data/README
 !data/README.*
+
+# Ignore Python bytecode and cache
+__pycache__/
+*.py[cod]
+
+# Ignore Jupyter checkpoints
+.ipynb_checkpoints/
