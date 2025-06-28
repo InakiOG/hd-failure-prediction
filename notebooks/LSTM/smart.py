@@ -14,6 +14,7 @@ import joblib
 import json
 from datetime import datetime
 import random
+from itertools import product
 
 dtype_dict = {'date': 'str', 'serial_number': 'str', 'model': 'str', 'capacity_bytes': 'int32', 'failure': 'bool', 'datacenter': 'str', 'cluster_id': 'int8', 'vault_id': 'int16', 'pod_id': 'int16', 'pod_slot_num': 'float32', 'is_legacy_format': 'bool', 'smart_1_normalized': 'float64', 'smart_1_raw': 'float64', 'smart_2_normalized': 'float64', 'smart_2_raw': 'float64', 'smart_3_normalized': 'float64', 'smart_3_raw': 'float64', 'smart_4_normalized': 'float64', 'smart_4_raw': 'float64', 'smart_5_normalized': 'float64', 'smart_5_raw': 'float64', 'smart_7_normalized': 'float64', 'smart_7_raw': 'float64', 'smart_8_normalized': 'float64', 'smart_8_raw': 'float64', 'smart_9_normalized': 'float64', 'smart_9_raw': 'float64', 'smart_10_normalized': 'float64', 'smart_10_raw': 'float64', 'smart_11_normalized': 'float64', 'smart_11_raw': 'float64', 'smart_12_normalized': 'float64', 'smart_12_raw': 'float64', 'smart_13_normalized': 'float64', 'smart_13_raw': 'float64', 'smart_15_normalized': 'float64', 'smart_15_raw': 'float64', 'smart_16_normalized': 'float64', 'smart_16_raw': 'float64', 'smart_17_normalized': 'float64', 'smart_17_raw': 'float64', 'smart_18_normalized': 'float64', 'smart_18_raw': 'float64', 'smart_22_normalized': 'float64', 'smart_22_raw': 'float64', 'smart_23_normalized': 'float64', 'smart_23_raw': 'float64', 'smart_24_normalized': 'float64', 'smart_24_raw': 'float64', 'smart_27_normalized': 'float64', 'smart_27_raw': 'float64', 'smart_71_normalized': 'float64', 'smart_71_raw': 'float64', 'smart_82_normalized': 'float64', 'smart_82_raw': 'float64', 'smart_90_normalized': 'float64', 'smart_90_raw': 'float64', 'smart_160_normalized': 'float64', 'smart_160_raw': 'float64', 'smart_161_normalized': 'float64', 'smart_161_raw': 'float64', 'smart_163_normalized': 'float64', 'smart_163_raw': 'float64', 'smart_164_normalized': 'float64', 'smart_164_raw': 'float64', 'smart_165_normalized': 'float64', 'smart_165_raw': 'float64', 'smart_166_normalized': 'float64', 'smart_166_raw': 'float64', 'smart_167_normalized': 'float64', 'smart_167_raw': 'float64', 'smart_168_normalized': 'float64', 'smart_168_raw': 'float64', 'smart_169_normalized': 'float64', 'smart_169_raw': 'float64', 'smart_170_normalized': 'float64', 'smart_170_raw': 'float64', 'smart_171_normalized': 'float64', 'smart_171_raw': 'float64', 'smart_172_normalized': 'float64', 'smart_172_raw': 'float64', 'smart_173_normalized': 'float64', 'smart_173_raw': 'float64', 'smart_174_normalized': 'float64', 'smart_174_raw': 'float64', 'smart_175_normalized': 'float64', 'smart_175_raw': 'float64', 'smart_176_normalized': 'float64', 'smart_176_raw': 'float64', 'smart_177_normalized': 'float64', 'smart_177_raw': 'float64', 'smart_178_normalized': 'float64', 'smart_178_raw': 'float64', 'smart_179_normalized': 'float64', 'smart_179_raw': 'float64', 'smart_180_normalized': 'float64', 'smart_180_raw': 'float64', 'smart_181_normalized': 'float64', 'smart_181_raw': 'float64', 'smart_182_normalized': 'float64', 'smart_182_raw': 'float64', 'smart_183_normalized': 'float64', 'smart_183_raw': 'float64', 'smart_184_normalized': 'float64', 'smart_184_raw': 'float64', 'smart_187_normalized': 'float64', 'smart_187_raw': 'float64', 'smart_188_normalized': 'float64', 'smart_188_raw': 'float64', 'smart_189_normalized': 'float64', 'smart_189_raw': 'float64', 'smart_190_normalized': 'float64', 'smart_190_raw': 'float64', 'smart_191_normalized': 'float64', 'smart_191_raw': 'float64', 'smart_192_normalized': 'float64', 'smart_192_raw': 'float64', 'smart_193_normalized': 'float64', 'smart_193_raw': 'float64', 'smart_194_normalized': 'float64', 'smart_194_raw': 'float64', 'smart_195_normalized': 'float64', 'smart_195_raw': 'float64', 'smart_196_normalized': 'float64', 'smart_196_raw': 'float64', 'smart_197_normalized': 'float64', 'smart_197_raw': 'float64', 'smart_198_normalized': 'float64', 'smart_198_raw': 'float64', 'smart_199_normalized': 'float64', 'smart_199_raw': 'float64', 'smart_200_normalized': 'float64', 'smart_200_raw': 'float64', 'smart_201_normalized': 'float64', 'smart_201_raw': 'float64', 'smart_202_normalized': 'float64', 'smart_202_raw': 'float64', 'smart_206_normalized': 'float64', 'smart_206_raw': 'float64', 'smart_210_normalized': 'float64', 'smart_210_raw': 'float64', 'smart_218_normalized': 'float64', 'smart_218_raw': 'float64', 'smart_220_normalized': 'float64', 'smart_220_raw': 'float64', 'smart_222_normalized': 'float64', 'smart_222_raw': 'float64', 'smart_223_normalized': 'float64', 'smart_223_raw': 'float64', 'smart_224_normalized': 'float64', 'smart_224_raw': 'float64', 'smart_225_normalized': 'float64', 'smart_225_raw': 'float64', 'smart_226_normalized': 'float64', 'smart_226_raw': 'float64', 'smart_230_normalized': 'float64', 'smart_230_raw': 'float64', 'smart_231_normalized': 'float64', 'smart_231_raw': 'float64', 'smart_232_normalized': 'float64', 'smart_232_raw': 'float64', 'smart_233_normalized': 'float64', 'smart_233_raw': 'float64', 'smart_234_normalized': 'float64', 'smart_234_raw': 'float64', 'smart_235_normalized': 'float64', 'smart_235_raw': 'float64', 'smart_240_normalized': 'float64', 'smart_240_raw': 'float64', 'smart_241_normalized': 'float64', 'smart_241_raw': 'float64', 'smart_242_normalized': 'float64', 'smart_242_raw': 'float64', 'smart_244_normalized': 'float64', 'smart_244_raw': 'float64', 'smart_245_normalized': 'float64', 'smart_245_raw': 'float64', 'smart_246_normalized': 'float64', 'smart_246_raw': 'float64', 'smart_247_normalized': 'float64', 'smart_247_raw': 'float64', 'smart_248_normalized': 'float64', 'smart_248_raw': 'float64', 'smart_250_normalized': 'float64', 'smart_250_raw': 'float64', 'smart_251_normalized': 'float64', 'smart_251_raw': 'float64', 'smart_252_normalized': 'float64', 'smart_252_raw': 'float64', 'smart_254_normalized': 'float64', 'smart_254_raw': 'float64', 'smart_255_normalized': 'float64', 'smart_255_raw': 'float64'}
 
@@ -606,7 +607,8 @@ def load_data(root: str,
               label_len: int = 1,
               normalized_rows: list = [],
               raw_rows: list = [],
-              verbose: bool = False):
+              verbose: bool = False,
+              batch_size: int = 3):
     """
     Load and preprocess data for training and testing.
     """
@@ -616,23 +618,19 @@ def load_data(root: str,
                                  normalized_rows=normalized_rows,
                                  raw_rows=raw_rows,
                                  verbose=verbose)
-    
     # Create datasets using the pre-split data
     dataset_train = CustomDrives(data_loader=data_loader,
                                 train=True, 
                                 input_len=input_len,
                                 label_len=label_len,
                                 verbose=verbose)
-
     dataset_test = CustomDrives(data_loader=data_loader,
                                train=False, 
                                input_len=input_len,
                                label_len=label_len,
                                verbose=verbose)
-
-    train_loader = DataLoader(dataset_train, batch_size=3, shuffle=True)
-
-    test_loader = DataLoader(dataset_test, batch_size=3, shuffle=True)
+    train_loader = DataLoader(dataset_train, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(dataset_test, batch_size=batch_size, shuffle=True)
     return train_loader, test_loader
 
 def train_model(features, n_neurons, model_path, days_to_predict, days_to_train, train_loader, test_loader, test_existing=False, learning_rate=0.001, num_epochs=1, device=None):
@@ -823,6 +821,83 @@ def train_model(features, n_neurons, model_path, days_to_predict, days_to_train,
 
     return model, model_exists
 
+from itertools import product
+
+def grid_search_lstm(root, train_ratio, min_sequence_length, input_len, label_len, normalized_rows, raw_rows, verbose, num_features, days_to_predict, days_to_train, device, param_grid=None, max_epochs=3):
+    """
+    Perform grid search over LSTM hyperparameters.
+    Args:
+        root: Path to data
+        train_ratio: Train/test split ratio
+        min_sequence_length: Minimum sequence length
+        input_len: Input window length
+        label_len: Prediction window length
+        normalized_rows: SMART normalized features
+        raw_rows: SMART raw features
+        verbose: Verbosity
+        num_features: Number of input features
+        days_to_predict: Number of days to predict
+        days_to_train: Number of days to use for input
+        device: torch.device
+        param_grid: dict of parameter lists
+        max_epochs: int, number of epochs for each trial
+    Returns:
+        dict: Best parameters (excluding batch_size)
+        float: Best validation loss
+    """
+    if param_grid is None:
+        param_grid = {
+            'n_neurons': [4, 8, 16],
+            'learning_rate': [0.001, 0.005],
+            'batch_size': [3, 8]
+        }
+    best_loss = float('inf')
+    best_params = None
+    for n_neurons, learning_rate, batch_size in product(param_grid['n_neurons'], param_grid['learning_rate'], param_grid['batch_size']):
+        print(f"\nTesting n_neurons={n_neurons}, lr={learning_rate}, batch_size={batch_size}")
+        # Re-create loaders with new batch size
+        train_loader, test_loader = load_data(
+            root=root,
+            train_ratio=train_ratio,
+            min_sequence_length=min_sequence_length,
+            input_len=input_len,
+            label_len=label_len,
+            normalized_rows=normalized_rows,
+            raw_rows=raw_rows,
+            verbose=verbose,
+            batch_size=batch_size
+        )
+        model, _ = train_model(
+            features=num_features,
+            n_neurons=n_neurons,
+            model_path='models/lstm_gridsearch.pth',
+            days_to_predict=days_to_predict,
+            days_to_train=days_to_train,
+            train_loader=train_loader,
+            test_loader=test_loader,
+            test_existing=False,
+            learning_rate=learning_rate,
+            num_epochs=max_epochs,
+            device=device
+        )
+        # Evaluate on validation set
+        model.eval()
+        val_loss = 0
+        batches = 0
+        with torch.no_grad():
+            for val_data, val_labels in test_loader:
+                val_data, val_labels = val_data.to(device), val_labels.to(device)
+                predictions = model(val_data)
+                loss = torch.nn.functional.mse_loss(predictions, val_labels)
+                val_loss += loss.item()
+                batches += 1
+        avg_val_loss = val_loss / batches if batches > 0 else float('inf')
+        print(f"Validation loss: {avg_val_loss:.6f}")
+        if avg_val_loss < best_loss:
+            best_loss = avg_val_loss
+            best_params = {'n_neurons': n_neurons, 'learning_rate': learning_rate}  # batch_size removed
+    print(f"\nBest LSTM params: {best_params}, Validation loss: {best_loss:.6f}")
+    return best_params, best_loss
 
 def main():
     """
@@ -843,11 +918,10 @@ def main():
     look_back = days_to_train + days_to_predict
     path = "data/data_test"
     verbose = True    # Create a single data loader that handles the train/test split properly
-    print(f'Using device: {device}')
+    print(f'Using device: {device}') 
     
     print("🔄 Loading and splitting data to prevent data leakage...")
     min_sequence_length = days_to_train + days_to_predict
-
     train_loader, test_loader = load_data(root=path,
                                          train_ratio=0.8, 
                                          min_sequence_length=min_sequence_length,
@@ -855,13 +929,40 @@ def main():
                                          label_len=days_to_predict,
                                          normalized_rows = [1, 3, 5, 7, 9, 187, 189, 190, 195, 197],
                                          raw_rows = [5, 197],
-                                         verbose=verbose)
-
+                                         verbose=verbose,
+                                         batch_size=3)
     num_features = 12
     n_neurons = 4
     num_epochs = 1
     learning_rate = 0.001
 
+    param_grid = {
+        'n_neurons': [4, 8, 16, 32],
+        'learning_rate': [0.001, 0.003, 0.005, 0.01],
+        'batch_size': [2, 4, 8, 16]
+    }
+
+    best_params, best_loss = grid_search_lstm(
+        root=path,
+        train_ratio=0.8,
+        min_sequence_length=min_sequence_length,
+        input_len=days_to_train,
+        label_len=days_to_predict,
+        normalized_rows=[1, 3, 5, 7, 9, 187, 189, 190, 195, 197],
+        raw_rows=[5, 197],
+        verbose=verbose,
+        num_features=num_features,
+        days_to_predict=days_to_predict,
+        days_to_train=days_to_train,
+        device=device,
+        param_grid=None,
+        max_epochs=num_epochs
+    )
+    if best_params is not None:
+        n_neurons = best_params['n_neurons']
+        learning_rate = best_params['learning_rate']
+    else:
+        raise RuntimeError("Grid search did not return any valid parameters. Please check your data and parameter grid.")
     # Check if trained model exists
     model_path = 'models/LSTM/lstm_model.pth'
 
