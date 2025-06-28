@@ -581,7 +581,7 @@ def log_model_performance(model_name, accuracy, params):
     
     print(f"Logged model performance to {log_file}")
 
-def grid_search_decision_tree(X, y):
+def grid_search_decision_tree(X, y, param_grid=None):
     """
     Perform grid search to find the best max_depth and min_samples_leaf for DecisionTreeClassifier (Gini).
     Args:
@@ -591,10 +591,12 @@ def grid_search_decision_tree(X, y):
         dict: Best parameters
         float: Best score
     """
-    param_grid = {
-        'max_depth': [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, None],
-        'min_samples_leaf': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100]
-    }
+    if param_grid is None:
+        param_grid = {
+            'max_depth': [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200, None],
+            'min_samples_leaf': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100]
+        }
+    
     clf = DecisionTreeClassifier(criterion="gini", random_state=42)
     grid_search = GridSearchCV(clf, param_grid, cv=3, scoring='accuracy', n_jobs=-1)
     grid_search.fit(X, y)
