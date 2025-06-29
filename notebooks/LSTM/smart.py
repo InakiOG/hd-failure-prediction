@@ -823,7 +823,7 @@ def train_model(features, n_neurons, model_path, days_to_predict, days_to_train,
 
 from itertools import product
 
-def grid_search_lstm(root, train_ratio, min_sequence_length, input_len, label_len, normalized_rows, raw_rows, verbose, num_features, days_to_predict, days_to_train, device, param_grid=None, max_epochs=3):
+def grid_search_lstm(root, train_ratio, min_sequence_length, days_to_train, days_to_predict, normalized_rows, raw_rows, verbose, num_features, device, param_grid=None, max_epochs=3):
     """
     Perform grid search over LSTM hyperparameters.
     Args:
@@ -849,24 +849,24 @@ def grid_search_lstm(root, train_ratio, min_sequence_length, input_len, label_le
         param_grid = {
             'n_neurons': [4, 8, 16],
             'learning_rate': [0.001, 0.005],
-            'batch_size': [3, 8]
         }
     best_loss = float('inf')
     best_params = None
-    for n_neurons, learning_rate, batch_size in product(param_grid['n_neurons'], param_grid['learning_rate'], param_grid['batch_size']):
-        print(f"\nTesting n_neurons={n_neurons}, lr={learning_rate}, batch_size={batch_size}")
+
+    train_loader, test_loader = load_data(
+        root=root,
+        train_ratio=train_ratio,
+        min_sequence_length=min_sequence_length,
+        input_len=days_to_train,
+        label_len=days_to_predict,
+        normalized_rows=normalized_rows,
+        raw_rows=raw_rows,
+        verbose=verbose,
+    )
+    for n_neurons, learning_rate in product(param_grid['n_neurons'], param_grid['learning_rate']):
+        print(f"\nTesting n_neurons={n_neurons}, lr={learning_rate}")
         # Re-create loaders with new batch size
-        train_loader, test_loader = load_data(
-            root=root,
-            train_ratio=train_ratio,
-            min_sequence_length=min_sequence_length,
-            input_len=input_len,
-            label_len=label_len,
-            normalized_rows=normalized_rows,
-            raw_rows=raw_rows,
-            verbose=verbose,
-            batch_size=batch_size
-        )
+
         model, _ = train_model(
             features=num_features,
             n_neurons=n_neurons,
