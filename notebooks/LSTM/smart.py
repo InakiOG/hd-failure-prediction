@@ -67,7 +67,7 @@ def clean_data_smart(df, normalized_rows, raw_rows):
     for i in raw_rows:
         smart_allowed.append(f'smart_{i}_raw')
 
-    if len(normalized_rows) > 0:
+    if len(normalized_rows) > 0 or len(raw_rows) > 0:
         for column in df.columns:
             if column not in smart_allowed:
                 columns_to_delete.append(column)
