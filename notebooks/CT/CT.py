@@ -43,14 +43,17 @@ def process_chunks(file_path, normalized_rows, raw_rows, columns_to_delete):
 def cleandata_smart(df, normalized_rows, raw_rows, columns_to_delete):
     """
     Clean and preprocess hard drive data for SMART analysis.
-    
-    Removes unnecessary columns, keeps only specific SMART attributes valuable for 
-    failure prediction analysis, handles missing values, and balances the dataset
-    by sampling non-failed drives.
-    
+
+    Keeps only the specified normalized and raw SMART attributes, removes unnecessary columns,
+    fills missing values with zero, and balances the dataset by downsampling non-failed drives
+    to be at most 5 times the number of failed drives.
+
     Args:
         df (pd.DataFrame): Raw hard drive data DataFrame
-        
+        normalized_rows (list): List of SMART attribute numbers to keep (normalized)
+        raw_rows (list): List of SMART attribute numbers to keep (raw)
+        columns_to_delete (list or None): List of columns to delete, or None to use default
+
     Returns:
         pd.DataFrame: Cleaned and balanced DataFrame with selected SMART attributes
     """
