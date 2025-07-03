@@ -40,7 +40,7 @@ def process_chunks(file_path, normalized_rows, raw_rows, columns_to_delete):
 
     return aggregated_result
 
-def cleandata_smart(df, normalized_rows, raw_rows, columns_to_delete=None):
+def cleandata_smart(df, normalized_rows, raw_rows, columns_to_delete):
     """
     Clean and preprocess hard drive data for SMART analysis.
     
@@ -66,7 +66,7 @@ def cleandata_smart(df, normalized_rows, raw_rows, columns_to_delete=None):
 
     if len(normalized_rows) > 0:
         for column in df.columns:
-            if column != 'failure' and column not in smart_allowed:
+            if column not in smart_allowed and column.startswith('smart_') and column != 'failure':
                 columns_to_delete.append(column)
 
     df = df.drop(columns=columns_to_delete)
