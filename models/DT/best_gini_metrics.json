@@ -1,43 +1,43 @@
 {
   "classification_report": {
     "False": {
-      "precision": 0.94,
-      "recall": 0.9894736842105263,
-      "f1-score": 0.9641025641025641,
-      "support": 95.0
+      "precision": 0.9183612884073029,
+      "recall": 0.866405265368996,
+      "f1-score": 0.8916270355959072,
+      "support": 7141.0
     },
     "True": {
-      "precision": 0.9411764705882353,
-      "recall": 0.7272727272727273,
-      "f1-score": 0.8205128205128205,
-      "support": 22.0
+      "precision": 0.4755360087960418,
+      "recall": 0.6113074204946997,
+      "f1-score": 0.5349412492269635,
+      "support": 1415.0
     },
-    "accuracy": 0.9401709401709402,
+    "accuracy": 0.8242169237961664,
     "macro avg": {
-      "precision": 0.9405882352941176,
-      "recall": 0.8583732057416268,
-      "f1-score": 0.8923076923076922,
-      "support": 117.0
+      "precision": 0.6969486486016724,
+      "recall": 0.7388563429318478,
+      "f1-score": 0.7132841424114353,
+      "support": 8556.0
     },
     "weighted avg": {
-      "precision": 0.9402212166918049,
-      "recall": 0.9401709401709402,
-      "f1-score": 0.9371027832566293,
-      "support": 117.0
+      "precision": 0.8451263923519109,
+      "recall": 0.8242169237961664,
+      "f1-score": 0.8326379767235305,
+      "support": 8556.0
     }
   },
   "confusion_matrix": [
     [
-      94,
-      1
+      6187,
+      954
     ],
     [
-      6,
-      16
+      550,
+      865
     ]
   ],
-  "accuracy": 0.9401709401709402,
+  "accuracy": 0.8242169237961664,
   "model_type": "gini",
-  "timestamp": "2025-06-27T01:16:59.986839",
-  "model_filename": "models/DT/best_gini_tree.joblib"
+  "timestamp": "2025-07-08T02:29:21.450146",
+  "model_filename": "../models/DT/best_gini_tree.joblib"
 }

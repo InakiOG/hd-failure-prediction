@@ -445,7 +445,7 @@ class Net(nn.Module):
         out = self.fc(out[:, -1, :])  # Use the last output of the LSTM
         return out.view(-1, self.days_to_predict, self.features)
 
-def save_best_model(model, model_path, metrics, save_whole_model=True):
+def save_model(model, model_path, metrics, save_whole_model=True):
     """
     Save model using joblib for complete model preservation.
     
@@ -474,7 +474,7 @@ def save_best_model(model, model_path, metrics, save_whole_model=True):
         # Save only the state_dict
         torch.save(model.state_dict(), model_path)
         print(f"✅ Model state_dict saved to {model_path}")
-    
+
     # Save the metrics alongside the model
     metrics_path = model_path.replace('.pth', '_metrics.json')
     
@@ -755,37 +755,40 @@ def train_model(features, n_neurons, model_path, days_to_predict, days_to_train,
                 minimum_loss = avg_val_loss
                 
                 # Create metrics dictionary with comprehensive information
-                metrics = {
-                    'val_loss': avg_val_loss,
-                    'train_loss': avg_train_loss,
-                    'epoch': epoch + 1,
-                    'total_epochs': num_epochs,
-                    'optimizer': optimizer.__class__.__name__,
-                    'learning_rate': optimizer.param_groups[0]['lr'],
-                    'n_neurons': n_neurons,
-                    'features': features,
-                    'days_to_predict': days_to_predict,
-                    'days_to_train': days_to_train,
-                    'device': str(device)
-                }
-                
-                # Save using our utility function
-                save_best_model(model, model_path, metrics, save_whole_model=True)
-                print(f"New best model saved with validation loss: {avg_val_loss:.6f}")
-                
             # Print epoch summary
-            print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {avg_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
+            if (epoch + 1) % max(1, num_epochs // 10) == 0 or epoch == num_epochs - 1:
+                print(f"[{epoch + 1}/{num_epochs}] - Train Loss: {avg_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
             
             # Save loss plot every 10 epochs
-            if (epoch + 1) % 10 == 0:
-                fig, ax = plt.subplots(1, 1, figsize=(15, 5))
-                ax.plot(loss_curve, lw=2)
-                ax.set_xlabel("Epoch")
-                ax.set_ylabel("Validation Loss")
-                ax.set_title("Training Progress")
-                plt.savefig(f'loss_epoch_{epoch+1}.png')
-                plt.close()  # Close the figure to free memory    # Generate final plots and predictions
-
+            # if (epoch + 1) % 10 == 0:
+            #     fig, ax = plt.subplots(1, 1, figsize=(15, 5))
+            #     ax.plot(loss_curve, lw=2)
+            #     ax.set_xlabel("Epoch")
+            #     ax.set_ylabel("Validation Loss")
+            #     ax.set_title("Training Progress")
+                
+            #     # Save in model directory
+            #     plot_dir = os.path.dirname(model_path)
+            #     os.makedirs(plot_dir, exist_ok=True)
+            #     plot_path = os.path.join(plot_dir, f'loss_epoch_{epoch+1}.png')
+            #     plt.savefig(plot_path)
+            #     plt.close()  # Close the figure to free memory
+        metrics = {
+            'val_loss': avg_val_loss,
+            'train_loss': avg_train_loss,
+            'epoch': epoch + 1,
+            'total_epochs': num_epochs,
+            'optimizer': optimizer.__class__.__name__,
+            'learning_rate': optimizer.param_groups[0]['lr'],
+            'n_neurons': n_neurons,
+            'features': features,
+            'days_to_predict': days_to_predict,
+            'days_to_train': days_to_train,
+            'device': str(device)
+        }
+        save_model(model, model_path, metrics, save_whole_model=True)
+        print(f"New best model saved with validation loss: {avg_val_loss:.6f}")
+    # Generate final plots and predictions
     if loss_curve:  # Only plot if we have training data
         fig, ax = plt.subplots(1, 1, figsize=(15, 5))
         ax.plot(loss_curve, lw=2)
@@ -798,7 +801,7 @@ def train_model(features, n_neurons, model_path, days_to_predict, days_to_train,
         plot_path = os.path.join(os.path.dirname(model_path), 'final_loss.png')
         plt.savefig(plot_path)
         print(f"✅ Final loss curve saved to {plot_path}")
-        plt.close()
+        plt.close()  # Close the figure to free memory
 
     return model, model_exists
 

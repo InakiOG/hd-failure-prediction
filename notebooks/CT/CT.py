@@ -307,7 +307,7 @@ def prediction(X_test, clf_object):
     return y_pred
 
 # Function to calculate accuracy and other metrics
-def cal_accuracy(y_test, y_pred, model=None, model_type=None, save_if_best=True):
+def cal_accuracy(y_test, y_pred, model=None, model_type=None, save_if_best=True, model_dir="../models/DT"):
     """
     Calculate and display comprehensive accuracy metrics for binary classification.
     
@@ -411,12 +411,12 @@ def cal_accuracy(y_test, y_pred, model=None, model_type=None, save_if_best=True)
             "classification_report": classification_report(y_test, y_pred, output_dict=True),
             "confusion_matrix": confusion_matrix(y_test, y_pred).tolist()
         }
-        save_best_model(model, model_type, accuracy, metrics_dict)
+        save_best_model(model, model_type, accuracy, metrics_dict, model_dir)
     
     return accuracy
 
 # Function to plot the decision tree
-def plot_decision_tree(clf_object, feature_names, class_names):
+def plot_decision_tree(clf_object, feature_names, class_names, save_path=None):
     """
     Plot and visualize a trained decision tree.
     
@@ -427,16 +427,23 @@ def plot_decision_tree(clf_object, feature_names, class_names):
         clf_object (DecisionTreeClassifier): Trained decision tree classifier to visualize
         feature_names (list): List of feature names for labeling tree nodes
         class_names (list): List of class names for labeling leaf nodes
+        save_path (str, optional): Path to save the tree visualization. If None, only displays.
         
     Returns:
         None: Displays the decision tree plot
     """
     plt.figure(figsize=(25, 20))
     tree.plot_tree(clf_object, filled=True, feature_names=feature_names, class_names=class_names, rounded=True)
+    
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Decision tree plot saved to {save_path}")
+    
     plt.show()
 
 # Function to save the model
-def save_model(model, model_name):
+def save_model(model, model_name, model_dir="../models/DT"):
     """
     Save the trained model to a file.
     
@@ -445,18 +452,20 @@ def save_model(model, model_name):
     Args:
         model (object): Trained model object to be saved
         model_name (str): Name for the model file (without extension)
+        model_dir (str): Directory to save the model (default: "../models/DT")
         
     Returns:
         None: Saves the model to a file
     """
-    # Create the 'models' directory if it doesn't exist
-    os.makedirs("models", exist_ok=True)
+    # Create the model directory if it doesn't exist
+    os.makedirs(model_dir, exist_ok=True)
     
     # Save the model using joblib
-    joblib.dump(model, f"models/DT/{model_name}.joblib")
-    print(f"Model saved as: models/DT/{model_name}.joblib")
+    model_path = os.path.join(model_dir, f"{model_name}.joblib")
+    joblib.dump(model, model_path)
+    print(f"Model saved as: {model_path}")
 
-def save_best_model(model, model_type, accuracy, metrics_dict, model_dir="models/DT"):
+def save_best_model(model, model_type, accuracy, metrics_dict, model_dir="../models/DT"):
     """
     Save a model only if it performs better than the previous best model.
     
