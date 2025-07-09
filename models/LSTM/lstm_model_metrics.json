@@ -1,8 +1,8 @@
 {
-    "val_loss": 289.1057536973069,
-    "train_loss": 195.02414483587253,
-    "epoch": 4000,
-    "total_epochs": 4000,
+    "val_loss": 454.0384688269475,
+    "train_loss": 361.1741701794259,
+    "epoch": 4500,
+    "total_epochs": 4500,
     "optimizer": "Adam",
     "learning_rate": 0.01,
     "n_neurons": 6,
@@ -10,5 +10,5 @@
     "days_to_predict": 1,
     "days_to_train": 4,
     "device": "cuda",
-    "timestamp": "2025-07-08T03:16:45.127239"
+    "timestamp": "2025-07-09T02:16:42.346985"
 }
