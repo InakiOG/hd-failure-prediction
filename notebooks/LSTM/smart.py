@@ -20,16 +20,18 @@ def clean_data_smart(df, normalized_rows, raw_rows, columns_to_delete=['model','
     """
     Clean and preprocess hard drive data for SMART attribute analysis.
     
-    Selects only relevant SMART attributes known to be predictive of hard drive failure
-    based on research papers. Keeps specific SMART attributes (1,3,5,7,9,187,189,190,195,197),
-    date and serial_number for time series analysis, and converts float columns to integers
-    for efficiency.
+    Selects only specified SMART attributes based on the provided normalized_rows and raw_rows
+    parameters. Keeps essential metadata columns (date, serial_number, failure) and removes
+    unnecessary columns to optimize memory usage and model performance.
     
     Args:
         df (pd.DataFrame): Raw hard drive data DataFrame with all SMART attributes
+        normalized_rows (list): List of SMART attribute IDs to include (normalized values)
+        raw_rows (list): List of SMART attribute IDs to include (raw values)
+        columns_to_delete (list): List of column names to remove from the dataset
         
     Returns:
-        pd.DataFrame: Cleaned DataFrame with only selected SMART attributes 
+        pd.DataFrame: Cleaned DataFrame with only selected SMART attributes and metadata
     """
     df.head()
     smart_allowed = ['date', 'serial_number', 'failure']
@@ -55,9 +57,15 @@ def clean_data_smart(df, normalized_rows, raw_rows, columns_to_delete=['model','
 
 class DriveDataLoader:
     """
-    Centralized data loader that handles the train/test split at the drive level to prevent data leakage.
+    Centralized data loader that handles train/test split at the drive level to prevent data leakage.
     
-    This class loads all data once and creates separate train/test splits based on drive serial numbers,    ensuring that no drive appears in both training and testing sets.
+    This class loads all CSV files from the specified directory, applies data cleaning using
+    the clean_data_smart function, and creates separate train/test splits based on drive 
+    serial numbers. This ensures that no drive appears in both training and testing sets,
+    preventing temporal data leakage that could artificially inflate model performance.
+    
+    The class supports both loading all available drives or selecting a specific number
+    of drives for processing, with configurable minimum sequence length requirements.
     """
     
     def __init__(self, root: str, train_ratio: float = 0.8, min_sequence_length: int = 5, verbose: bool = False, num_drives = -1, normalized_rows = [], raw_rows = [], dtype_dict = {'date': 'str', 'serial_number': 'str', 'model': 'str', 'capacity_bytes': 'int32', 'failure': 'bool', 'datacenter': 'str', 'cluster_id': 'int8', 'vault_id': 'int16', 'pod_id': 'int16', 'pod_slot_num': 'float32', 'is_legacy_format': 'bool', 'smart_1_normalized': 'float64', 'smart_1_raw': 'float64', 'smart_2_normalized': 'float64', 'smart_2_raw': 'float64', 'smart_3_normalized': 'float64', 'smart_3_raw': 'float64', 'smart_4_normalized': 'float64', 'smart_4_raw': 'float64', 'smart_5_normalized': 'float64', 'smart_5_raw': 'float64', 'smart_7_normalized': 'float64', 'smart_7_raw': 'float64', 'smart_8_normalized': 'float64', 'smart_8_raw': 'float64', 'smart_9_normalized': 'float64', 'smart_9_raw': 'float64', 'smart_10_normalized': 'float64', 'smart_10_raw': 'float64', 'smart_11_normalized': 'float64', 'smart_11_raw': 'float64', 'smart_12_normalized': 'float64', 'smart_12_raw': 'float64', 'smart_13_normalized': 'float64', 'smart_13_raw': 'float64', 'smart_15_normalized': 'float64', 'smart_15_raw': 'float64', 'smart_16_normalized': 'float64', 'smart_16_raw': 'float64', 'smart_17_normalized': 'float64', 'smart_17_raw': 'float64', 'smart_18_normalized': 'float64', 'smart_18_raw': 'float64', 'smart_22_normalized': 'float64', 'smart_22_raw': 'float64', 'smart_23_normalized': 'float64', 'smart_23_raw': 'float64', 'smart_24_normalized': 'float64', 'smart_24_raw': 'float64', 'smart_27_normalized': 'float64', 'smart_27_raw': 'float64', 'smart_71_normalized': 'float64', 'smart_71_raw': 'float64', 'smart_82_normalized': 'float64', 'smart_82_raw': 'float64', 'smart_90_normalized': 'float64', 'smart_90_raw': 'float64', 'smart_160_normalized': 'float64', 'smart_160_raw': 'float64', 'smart_161_normalized': 'float64', 'smart_161_raw': 'float64', 'smart_163_normalized': 'float64', 'smart_163_raw': 'float64', 'smart_164_normalized': 'float64', 'smart_164_raw': 'float64', 'smart_165_normalized': 'float64', 'smart_165_raw': 'float64', 'smart_166_normalized': 'float64', 'smart_166_raw': 'float64', 'smart_167_normalized': 'float64', 'smart_167_raw': 'float64', 'smart_168_normalized': 'float64', 'smart_168_raw': 'float64', 'smart_169_normalized': 'float64', 'smart_169_raw': 'float64', 'smart_170_normalized': 'float64', 'smart_170_raw': 'float64', 'smart_171_normalized': 'float64', 'smart_171_raw': 'float64', 'smart_172_normalized': 'float64', 'smart_172_raw': 'float64', 'smart_173_normalized': 'float64', 'smart_173_raw': 'float64', 'smart_174_normalized': 'float64', 'smart_174_raw': 'float64', 'smart_175_normalized': 'float64', 'smart_175_raw': 'float64', 'smart_176_normalized': 'float64', 'smart_176_raw': 'float64', 'smart_177_normalized': 'float64', 'smart_177_raw': 'float64', 'smart_178_normalized': 'float64', 'smart_178_raw': 'float64', 'smart_179_normalized': 'float64', 'smart_179_raw': 'float64', 'smart_180_normalized': 'float64', 'smart_180_raw': 'float64', 'smart_181_normalized': 'float64', 'smart_181_raw': 'float64', 'smart_182_normalized': 'float64', 'smart_182_raw': 'float64', 'smart_183_normalized': 'float64', 'smart_183_raw': 'float64', 'smart_184_normalized': 'float64', 'smart_184_raw': 'float64', 'smart_187_normalized': 'float64', 'smart_187_raw': 'float64', 'smart_188_normalized': 'float64', 'smart_188_raw': 'float64', 'smart_189_normalized': 'float64', 'smart_189_raw': 'float64', 'smart_190_normalized': 'float64', 'smart_190_raw': 'float64', 'smart_191_normalized': 'float64', 'smart_191_raw': 'float64', 'smart_192_normalized': 'float64', 'smart_192_raw': 'float64', 'smart_193_normalized': 'float64', 'smart_193_raw': 'float64', 'smart_194_normalized': 'float64', 'smart_194_raw': 'float64', 'smart_195_normalized': 'float64', 'smart_195_raw': 'float64', 'smart_196_normalized': 'float64', 'smart_196_raw': 'float64', 'smart_197_normalized': 'float64', 'smart_197_raw': 'float64', 'smart_198_normalized': 'float64', 'smart_198_raw': 'float64', 'smart_199_normalized': 'float64', 'smart_199_raw': 'float64', 'smart_200_normalized': 'float64', 'smart_200_raw': 'float64', 'smart_201_normalized': 'float64', 'smart_201_raw': 'float64', 'smart_202_normalized': 'float64', 'smart_202_raw': 'float64', 'smart_206_normalized': 'float64', 'smart_206_raw': 'float64', 'smart_210_normalized': 'float64', 'smart_210_raw': 'float64', 'smart_218_normalized': 'float64', 'smart_218_raw': 'float64', 'smart_220_normalized': 'float64', 'smart_220_raw': 'float64', 'smart_222_normalized': 'float64', 'smart_222_raw': 'float64', 'smart_223_normalized': 'float64', 'smart_223_raw': 'float64', 'smart_224_normalized': 'float64', 'smart_224_raw': 'float64', 'smart_225_normalized': 'float64', 'smart_225_raw': 'float64', 'smart_226_normalized': 'float64', 'smart_226_raw': 'float64', 'smart_230_normalized': 'float64', 'smart_230_raw': 'float64', 'smart_231_normalized': 'float64', 'smart_231_raw': 'float64', 'smart_232_normalized': 'float64', 'smart_232_raw': 'float64', 'smart_233_normalized': 'float64', 'smart_233_raw': 'float64', 'smart_234_normalized': 'float64', 'smart_234_raw': 'float64', 'smart_235_normalized': 'float64', 'smart_235_raw': 'float64', 'smart_240_normalized': 'float64', 'smart_240_raw': 'float64', 'smart_241_normalized': 'float64', 'smart_241_raw': 'float64', 'smart_242_normalized': 'float64', 'smart_242_raw': 'float64', 'smart_244_normalized': 'float64', 'smart_244_raw': 'float64', 'smart_245_normalized': 'float64', 'smart_245_raw': 'float64', 'smart_246_normalized': 'float64', 'smart_246_raw': 'float64', 'smart_247_normalized': 'float64', 'smart_247_raw': 'float64', 'smart_248_normalized': 'float64', 'smart_248_raw': 'float64', 'smart_250_normalized': 'float64', 'smart_250_raw': 'float64', 'smart_251_normalized': 'float64', 'smart_251_raw': 'float64', 'smart_252_normalized': 'float64', 'smart_252_raw': 'float64', 'smart_254_normalized': 'float64', 'smart_254_raw': 'float64', 'smart_255_normalized': 'float64', 'smart_255_raw': 'float64'}, columns_to_delete = ['model','capacity_bytes','datacenter','cluster_id','vault_id','pod_id','pod_slot_num','is_legacy_format']):
@@ -67,8 +75,13 @@ class DriveDataLoader:
         Args:
             root (str): Root directory containing CSV files with hard drive data
             train_ratio (float): Ratio of drives to use for training (0.8 = 80% train, 20% test)
-            min_sequence_length (int): Minimum number of days required per drive
-            verbose (bool): Whether to print detailed information during loading
+            min_sequence_length (int): Minimum number of days required per drive to be included
+            verbose (bool): Whether to print detailed information during loading process
+            num_drives (int): Number of drives to randomly select (-1 for all drives)
+            normalized_rows (list): List of SMART attribute IDs to include (normalized values)
+            raw_rows (list): List of SMART attribute IDs to include (raw values)
+            dtype_dict (dict): Data type specifications for efficient memory usage during CSV reading
+            columns_to_delete (list): List of column names to remove during preprocessing
         """
         self.dataset_path = root
         self.train_ratio = train_ratio
@@ -93,6 +106,19 @@ class DriveDataLoader:
             self._split_drives(min_sequence_length)
     
     def _get_drives(self, num_drives, min_sequence_length):
+        """
+        Select a specific number of drives that meet the minimum sequence length requirement.
+        
+        This method filters the loaded data to include only drives with sufficient data points,
+        then randomly samples the requested number of drives for processing.
+        
+        Args:
+            num_drives (int): Number of drives to randomly select
+            min_sequence_length (int): Minimum number of days required per drive
+            
+        Raises:
+            ValueError: If fewer drives meet the minimum sequence length than requested
+        """
         if self.verbose:
             print(f'[DriveDataLoader] Loading drives with at least {min_sequence_length} days of data...')
         self._load_all_data()
@@ -107,8 +133,17 @@ class DriveDataLoader:
             print(f'[DriveDataLoader] Total rows in selected drives: {len(self.all_data)}')
 
     def _load_all_data(self):
-
-        """Load all CSV files and concatenate them."""
+        """
+        Load all CSV files from the specified directory and concatenate them into a single DataFrame.
+        
+        This method supports both flat directory structures (CSV files directly in root) and
+        nested structures (CSV files in subdirectories). It applies the clean_data_smart
+        preprocessing function to each file before concatenation, and sorts the final
+        dataset by serial_number and date for consistent ordering.
+        
+        The method uses the configured dtype_dict for efficient memory usage during CSV reading
+        and applies the specified normalization parameters and column deletion rules.
+        """
         data = []
         csv_files = []
         
@@ -145,10 +180,23 @@ class DriveDataLoader:
     
     def _split_drives(self, min_sequence_length: int = 5):
         """
-        Filter drives by minimum sequence length, then split into train and test sets.
+        Filter drives by minimum sequence length and split into train and test sets.
+        
+        This method performs drive-level splitting to prevent data leakage by ensuring
+        that no drive appears in both training and testing sets. It first filters out
+        drives that don't meet the minimum sequence length requirement, then randomly
+        shuffles the remaining valid drives and splits them according to the configured
+        train_ratio.
+        
+        The method provides detailed logging of the splitting process, including statistics
+        about valid/invalid drives, sample drive information, and verification that no
+        overlap exists between train and test sets.
         
         Args:
-            min_sequence_length (int): Minimum number of days required per drive
+            min_sequence_length (int): Minimum number of days required per drive to be included
+            
+        Raises:
+            ValueError: If no drives meet the minimum sequence length requirement
         """
         # Group by drive and check sequence lengths
         grouped = self.all_data.groupby('serial_number')
@@ -242,15 +290,30 @@ class DriveDataLoader:
                 print(f'[DriveDataLoader] ❌ WARNING: {len(overlap)} drives found in both train and test sets!')
     
     def get_train_data(self):
-        """Get data for training drives only."""
+        """
+        Get data for training drives only.
+        
+        Returns:
+            pd.DataFrame: DataFrame containing only data from drives assigned to the training set
+        """
         return self.all_data[self.all_data['serial_number'].isin(self.train_drives)]
     
     def get_test_data(self):
-        """Get data for testing drives only."""
+        """
+        Get data for testing drives only.
+        
+        Returns:
+            pd.DataFrame: DataFrame containing only data from drives assigned to the testing set
+        """
         return self.all_data[self.all_data['serial_number'].isin(self.test_drives)]
     
     def get_all_data(self):
-        """Get all data regardless of train/test split."""
+        """
+        Get all loaded data regardless of train/test split.
+        
+        Returns:
+            pd.DataFrame: Complete DataFrame containing all loaded and preprocessed drive data
+        """
         return self.all_data
 
 class _CustomDrives(Dataset):
@@ -258,9 +321,15 @@ class _CustomDrives(Dataset):
     Internal dataset class for loading and preprocessing hard drive SMART data for time series analysis.
     
     This class handles preprocessing of pre-split data, organizing the data by drive serial number,
-    and preparing time-ordered sequences for training or testing. It splits data into input and target
-    windows, allowing for time series prediction of future SMART values.
-      Note: This is an internal implementation class used by CustomDrives.
+    and preparing time-ordered sequences for training or testing. It creates sliding windows from
+    each drive's time series data, splitting them into input sequences (past observations) and 
+    target sequences (future values to predict).
+    
+    The class processes data that has already been filtered by DriveDataLoader to ensure drives
+    meet minimum sequence length requirements and are properly assigned to train/test sets.
+    
+    Note: This is an internal implementation class used by CustomDrives and should not be
+    instantiated directly.
     """
     
     def __init__(self, 
@@ -271,11 +340,15 @@ class _CustomDrives(Dataset):
         """
         Initialize the dataset with pre-split data for time series prediction.
         
+        This constructor processes pre-filtered data from DriveDataLoader and organizes it
+        by drive serial number. Each drive's time series is prepared for creating input-target
+        sequence pairs based on the specified window sizes.
+        
         Args:
             data (pd.DataFrame): Pre-split DataFrame containing SMART data for either training or testing
             input_len (int): Number of time steps to use as input (look-back window)
             label_len (int): Number of time steps to predict (forecast window)
-            verbose (bool): Whether to print detailed information during loading
+            verbose (bool): Whether to print detailed information during data processing
         """
         super().__init__()
           # Input len is the past window of time and label len is the future window 
@@ -308,12 +381,18 @@ class _CustomDrives(Dataset):
         """
         Get a single input-target sequence pair for a specific drive.
         
+        This method retrieves the time series data for a drive at the specified index
+        and splits it into input (historical) and target (future) sequences based on
+        the configured window sizes. The input sequence represents past SMART attribute
+        values, while the target sequence represents future values to be predicted.
+        
         Args:
             idx (int): Index of the drive to retrieve
             
         Returns:
-            tuple: (train, label) where train contains past SMART data and 
-                  label contains future SMART data for the same drive
+            tuple: (train, label) where:
+                - train: DataFrame containing past SMART data (input_len time steps)
+                - label: DataFrame containing future SMART data (label_len time steps)
         """
         values =  self.data.get_group(self.list_of_keys[idx])
         
@@ -324,11 +403,17 @@ class _CustomDrives(Dataset):
     
 class CustomDrives(Dataset):
     """
-    Dataset class for hard drive SMART data time series forecasting.
+    PyTorch Dataset class for hard drive SMART data time series forecasting.
     
-    This class wraps the internal _CustomDrives implementation and prepares
-    the data for PyTorch models by converting DataFrame rows to NumPy arrays
-    and then to PyTorch tensors. It handles feature extraction and tensor    conversion for both input and output sequences.
+    This class serves as the main interface for loading hard drive data into PyTorch models.
+    It wraps the internal _CustomDrives implementation and handles the conversion from
+    pandas DataFrames to PyTorch tensors. The class supports both training and testing
+    modes, working with pre-split data from DriveDataLoader to prevent data leakage.
+    
+    The dataset removes metadata columns (serial_number, date, failure) and converts
+    numerical SMART attributes to PyTorch tensors with double precision for model training.
+    It maintains the temporal structure of the data while providing efficient batch loading
+    through PyTorch's DataLoader interface.
     """
     
     def __init__(self, 
@@ -341,13 +426,20 @@ class CustomDrives(Dataset):
         """
         Initialize the dataset with configuration for time series prediction.
         
+        This constructor sets up the dataset for either training or testing by obtaining
+        the appropriate data split from the provided DriveDataLoader. It supports both
+        new-style initialization (with data_loader) and legacy initialization (with root path).
+        
         Args:
-            data_loader (DriveDataLoader): Pre-initialized data loader with train/test split
-            root (str): Root directory containing CSV files (used only if data_loader is None)
+            data_loader (DriveDataLoader, optional): Pre-initialized data loader with train/test split
+            root (str, optional): Root directory containing CSV files (used only if data_loader is None)
             train (bool): Whether this dataset is for training (True) or testing (False)
             input_len (int): Number of time steps to use as input (look-back window)
             label_len (int): Number of time steps to predict (forecast window)
-            verbose (bool): Whether to print detailed information during loading
+            verbose (bool): Whether to print detailed information during initialization
+            
+        Raises:
+            ValueError: If neither data_loader nor root is provided
         """
         super().__init__()
         
@@ -387,14 +479,17 @@ class CustomDrives(Dataset):
         """
         Get a single input-target tensor pair for model training/testing.
         
-        Removes metadata columns and converts DataFrame data to PyTorch tensors.
+        This method retrieves a drive sequence pair from the internal dataset, removes
+        metadata columns that are not needed for model training (serial_number, date, failure),
+        and converts the resulting numerical data to PyTorch tensors with double precision.
         
         Args:
             idx (int): Index of the drive sequence to retrieve
             
         Returns:
-            tuple: (train_tensor, label_tensor) where tensors contain numeric SMART
-                  features for the input and output time windows
+            tuple: (train_tensor, label_tensor) where:
+                - train_tensor: PyTorch tensor of shape [input_len, num_features] containing historical SMART data
+                - label_tensor: PyTorch tensor of shape [label_len, num_features] containing future SMART data to predict
         """
         train, label = self.dataset[idx]
         train = train.drop(columns=['serial_number', 'date', 'failure']) # we don't need these columns for training
@@ -407,14 +502,22 @@ class Net(nn.Module):
     """
     LSTM neural network architecture for time series prediction of SMART attributes.
     
-    This model uses an LSTM (Long Short-Term Memory) network to learn time dependencies
-    in hard drive SMART attributes, followed by a fully connected layer to predict
-    future values of these attributes. The model predicts multiple days of values
-    for all features simultaneously.
+    This model uses a Long Short-Term Memory (LSTM) network to learn temporal dependencies
+    in hard drive SMART attributes, followed by a fully connected layer to predict future
+    values. The architecture is designed to process sequences of SMART data and predict
+    multiple future time steps for all features simultaneously.
+    
+    The model takes input sequences of shape [batch_size, sequence_length, num_features]
+    and outputs predictions of shape [batch_size, days_to_predict, num_features], where
+    each prediction represents the expected SMART attribute values for future time steps.
     """
     def __init__(self, n_neurons, features, days_to_predict=2):
         """
-        Initialize the LSTM-based neural network.
+        Initialize the LSTM-based neural network architecture.
+        
+        Creates a single-layer LSTM followed by a fully connected layer for time series
+        prediction. The model is configured to process multiple SMART attributes
+        simultaneously and predict their future values.
         
         Args:
             n_neurons (int): Number of neurons in the LSTM hidden layer
@@ -429,17 +532,19 @@ class Net(nn.Module):
 
     def forward(self, x):
         """
-        Forward pass through the network.
+        Forward pass through the LSTM network.
         
-        Takes a batch of time series data, processes it through the LSTM,
-        and outputs predictions for future time steps.
+        Processes a batch of time series data through the LSTM layer and generates
+        predictions for future time steps. The method uses the last hidden state
+        from the LSTM to produce predictions for all future time steps and features.
         
         Args:
             x (torch.Tensor): Input tensor of shape [batch_size, sequence_length, features]
+                            containing historical SMART attribute values
             
         Returns:
             torch.Tensor: Output tensor of shape [batch_size, days_to_predict, features]
-                        containing predictions for future time steps
+                        containing predictions for future SMART attribute values
         """
         out, _ = self.lstm(x)
         out = self.fc(out[:, -1, :])  # Use the last output of the LSTM
@@ -447,19 +552,23 @@ class Net(nn.Module):
 
 def save_model(model, model_path, metrics, save_whole_model=True):
     """
-    Save model using joblib for complete model preservation.
+    Save trained model and associated metrics to disk.
     
-    This function saves the model and its metrics. It can save either the complete model 
-    (using joblib) or just the state_dict (using torch.save).
+    This function provides comprehensive model persistence using either joblib for complete
+    model serialization or PyTorch's native format for state dictionaries. It also saves
+    training metrics alongside the model for tracking performance and configuration.
     
     Args:
-        model (nn.Module): PyTorch model to save
-        model_path (str): Path where the model should be saved
-        metrics (dict): Dictionary containing model metrics like loss, accuracy, etc.
-        save_whole_model (bool): Whether to save the complete model or just state_dict
+        model (nn.Module): Trained PyTorch model to save
+        model_path (str): Path where the model should be saved (with .pth extension)
+        metrics (dict): Dictionary containing model metrics (loss, accuracy, hyperparameters, etc.)
+        save_whole_model (bool): If True, save complete model using joblib; if False, save only state_dict
     
-    Returns:
-        None
+    Side Effects:
+        - Creates directory structure if it doesn't exist
+        - Saves model file (.joblib or .pth)
+        - Saves metrics file (*_metrics.json)
+        - Prints confirmation messages
     """
     # Create directory if it doesn't exist
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
@@ -487,15 +596,25 @@ def save_model(model, model_path, metrics, save_whole_model=True):
 
 def load_model(model_path, device=None, load_whole_model=True):
     """
-    Load a saved model using either joblib or PyTorch.
+    Load a previously saved model and its associated metrics from disk.
+    
+    This function supports loading models saved in either joblib format (complete model)
+    or PyTorch state dictionary format. It automatically detects the appropriate device
+    and loads associated metrics if available.
     
     Args:
-        model_path (str): Path to the saved model
-        device (torch.device): Device to load the model to
-        load_whole_model (bool): Whether to load complete model or state_dict
+        model_path (str): Path to the saved model file
+        device (torch.device, optional): Device to load the model to. If None, auto-detects GPU/CPU
+        load_whole_model (bool): If True, load complete model from joblib; if False, expects state_dict loading
         
     Returns:
-        tuple: (loaded_model, metrics_dict) if metrics file exists
+        tuple: (loaded_model, metrics_dict) where:
+            - loaded_model: The loaded PyTorch model ready for inference
+            - metrics_dict: Dictionary containing saved metrics, or None if no metrics file exists
+            
+    Raises:
+        FileNotFoundError: If the specified model file doesn't exist
+        ValueError: If load_whole_model=False (requires pre-instantiated model)
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if load_whole_model:
@@ -521,16 +640,24 @@ def load_model(model_path, device=None, load_whole_model=True):
 
 def test_lstm_model(model, test_loader, device=None, loss_function=None, verbose=True):
     """
-    Test the LSTM model on a given test_loader and return predictions, targets, and metrics.
+    Evaluate a trained LSTM model on test data and compute comprehensive metrics.
+    
+    This function performs model evaluation in inference mode, computing predictions
+    on the test dataset and calculating loss metrics. It processes the entire test
+    set and returns detailed results for analysis.
     
     Args:
-        model (nn.Module): Trained LSTM model
-        test_loader (DataLoader): DataLoader for test data
-        device (torch.device): Device to run the model on
-        loss_function: Loss function to use (default: nn.MSELoss)
-        verbose (bool): Whether to print progress
+        model (nn.Module): Trained LSTM model to evaluate
+        test_loader (DataLoader): PyTorch DataLoader containing test data
+        device (torch.device, optional): Device to run evaluation on. Auto-detects if None
+        loss_function (callable, optional): Loss function to use. Defaults to nn.MSELoss()
+        verbose (bool): Whether to print detailed progress information during evaluation
+        
     Returns:
-        dict: Dictionary with predictions, targets, and evaluation metrics
+        dict: Comprehensive evaluation results containing:
+            - 'predictions': numpy array of model predictions for all test samples
+            - 'targets': numpy array of actual target values for all test samples  
+            - 'metrics': dict with evaluation metrics including average loss
     """
     # Check if GPU is available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -589,7 +716,29 @@ def load_data(root: str,
               dtype_dict: Optional[dict] = {'date': 'str', 'serial_number': 'str', 'model': 'str', 'capacity_bytes': 'int32', 'failure': 'bool', 'datacenter': 'str', 'cluster_id': 'int8', 'vault_id': 'int16', 'pod_id': 'int16', 'pod_slot_num': 'float32', 'is_legacy_format': 'bool', 'smart_1_normalized': 'float64', 'smart_1_raw': 'float64', 'smart_2_normalized': 'float64', 'smart_2_raw': 'float64', 'smart_3_normalized': 'float64', 'smart_3_raw': 'float64', 'smart_4_normalized': 'float64', 'smart_4_raw': 'float64', 'smart_5_normalized': 'float64', 'smart_5_raw': 'float64', 'smart_7_normalized': 'float64', 'smart_7_raw': 'float64', 'smart_8_normalized': 'float64', 'smart_8_raw': 'float64', 'smart_9_normalized': 'float64', 'smart_9_raw': 'float64', 'smart_10_normalized': 'float64', 'smart_10_raw': 'float64', 'smart_11_normalized': 'float64', 'smart_11_raw': 'float64', 'smart_12_normalized': 'float64', 'smart_12_raw': 'float64', 'smart_13_normalized': 'float64', 'smart_13_raw': 'float64', 'smart_15_normalized': 'float64', 'smart_15_raw': 'float64', 'smart_16_normalized': 'float64', 'smart_16_raw': 'float64', 'smart_17_normalized': 'float64', 'smart_17_raw': 'float64', 'smart_18_normalized': 'float64', 'smart_18_raw': 'float64', 'smart_22_normalized': 'float64', 'smart_22_raw': 'float64', 'smart_23_normalized': 'float64', 'smart_23_raw': 'float64', 'smart_24_normalized': 'float64', 'smart_24_raw': 'float64', 'smart_27_normalized': 'float64', 'smart_27_raw': 'float64', 'smart_71_normalized': 'float64', 'smart_71_raw': 'float64', 'smart_82_normalized': 'float64', 'smart_82_raw': 'float64', 'smart_90_normalized': 'float64', 'smart_90_raw': 'float64', 'smart_160_normalized': 'float64', 'smart_160_raw': 'float64', 'smart_161_normalized': 'float64', 'smart_161_raw': 'float64', 'smart_163_normalized': 'float64', 'smart_163_raw': 'float64', 'smart_164_normalized': 'float64', 'smart_164_raw': 'float64', 'smart_165_normalized': 'float64', 'smart_165_raw': 'float64', 'smart_166_normalized': 'float64', 'smart_166_raw': 'float64', 'smart_167_normalized': 'float64', 'smart_167_raw': 'float64', 'smart_168_normalized': 'float64', 'smart_168_raw': 'float64', 'smart_169_normalized': 'float64', 'smart_169_raw': 'float64', 'smart_170_normalized': 'float64', 'smart_170_raw': 'float64', 'smart_171_normalized': 'float64', 'smart_171_raw': 'float64', 'smart_172_normalized': 'float64', 'smart_172_raw': 'float64', 'smart_173_normalized': 'float64', 'smart_173_raw': 'float64', 'smart_174_normalized': 'float64', 'smart_174_raw': 'float64', 'smart_175_normalized': 'float64', 'smart_175_raw': 'float64', 'smart_176_normalized': 'float64', 'smart_176_raw': 'float64', 'smart_177_normalized': 'float64', 'smart_177_raw': 'float64', 'smart_178_normalized': 'float64', 'smart_178_raw': 'float64', 'smart_179_normalized': 'float64', 'smart_179_raw': 'float64', 'smart_180_normalized': 'float64', 'smart_180_raw': 'float64', 'smart_181_normalized': 'float64', 'smart_181_raw': 'float64', 'smart_182_normalized': 'float64', 'smart_182_raw': 'float64', 'smart_183_normalized': 'float64', 'smart_183_raw': 'float64', 'smart_184_normalized': 'float64', 'smart_184_raw': 'float64', 'smart_187_normalized': 'float64', 'smart_187_raw': 'float64', 'smart_188_normalized': 'float64', 'smart_188_raw': 'float64', 'smart_189_normalized': 'float64', 'smart_189_raw': 'float64', 'smart_190_normalized': 'float64', 'smart_190_raw': 'float64', 'smart_191_normalized': 'float64', 'smart_191_raw': 'float64', 'smart_192_normalized': 'float64', 'smart_192_raw': 'float64', 'smart_193_normalized': 'float64', 'smart_193_raw': 'float64', 'smart_194_normalized': 'float64', 'smart_194_raw': 'float64', 'smart_195_normalized': 'float64', 'smart_195_raw': 'float64', 'smart_196_normalized': 'float64', 'smart_196_raw': 'float64', 'smart_197_normalized': 'float64', 'smart_197_raw': 'float64', 'smart_198_normalized': 'float64', 'smart_198_raw': 'float64', 'smart_199_normalized': 'float64', 'smart_199_raw': 'float64', 'smart_200_normalized': 'float64', 'smart_200_raw': 'float64', 'smart_201_normalized': 'float64', 'smart_201_raw': 'float64', 'smart_202_normalized': 'float64', 'smart_202_raw': 'float64', 'smart_206_normalized': 'float64', 'smart_206_raw': 'float64', 'smart_210_normalized': 'float64', 'smart_210_raw': 'float64', 'smart_218_normalized': 'float64', 'smart_218_raw': 'float64', 'smart_220_normalized': 'float64', 'smart_220_raw': 'float64', 'smart_222_normalized': 'float64', 'smart_222_raw': 'float64', 'smart_223_normalized': 'float64', 'smart_223_raw': 'float64', 'smart_224_normalized': 'float64', 'smart_224_raw': 'float64', 'smart_225_normalized': 'float64', 'smart_225_raw': 'float64', 'smart_226_normalized': 'float64', 'smart_226_raw': 'float64', 'smart_230_normalized': 'float64', 'smart_230_raw': 'float64', 'smart_231_normalized': 'float64', 'smart_231_raw': 'float64', 'smart_232_normalized': 'float64', 'smart_232_raw': 'float64', 'smart_233_normalized': 'float64', 'smart_233_raw': 'float64', 'smart_234_normalized': 'float64', 'smart_234_raw': 'float64', 'smart_235_normalized': 'float64', 'smart_235_raw': 'float64', 'smart_240_normalized': 'float64', 'smart_240_raw': 'float64', 'smart_241_normalized': 'float64', 'smart_241_raw': 'float64', 'smart_242_normalized': 'float64', 'smart_242_raw': 'float64', 'smart_244_normalized': 'float64', 'smart_244_raw': 'float64', 'smart_245_normalized': 'float64', 'smart_245_raw': 'float64', 'smart_246_normalized': 'float64', 'smart_246_raw': 'float64', 'smart_247_normalized': 'float64', 'smart_247_raw': 'float64', 'smart_248_normalized': 'float64', 'smart_248_raw': 'float64', 'smart_250_normalized': 'float64', 'smart_250_raw': 'float64', 'smart_251_normalized': 'float64', 'smart_251_raw': 'float64', 'smart_252_normalized': 'float64', 'smart_252_raw': 'float64', 'smart_254_normalized': 'float64', 'smart_254_raw': 'float64', 'smart_255_normalized': 'float64', 'smart_255_raw': 'float64'}, 
               columns_to_delete: Optional[list] = ['model','capacity_bytes','datacenter','cluster_id','vault_id','pod_id','pod_slot_num','is_legacy_format']):
     """
-    Load and preprocess data for training and testing.
+    Load and preprocess hard drive data for LSTM training and testing.
+    
+    This function serves as the main entry point for data loading, creating a DriveDataLoader
+    instance to handle train/test splitting at the drive level, then generating PyTorch
+    datasets and data loaders ready for model training and evaluation.
+    
+    Args:
+        root (str): Root directory containing CSV files with hard drive data
+        train_ratio (float): Proportion of drives to allocate for training (0.8 = 80% train, 20% test)
+        min_sequence_length (int): Minimum number of days required per drive to be included
+        input_len (int): Number of time steps to use as input (look-back window)
+        label_len (int): Number of time steps to predict (forecast window)
+        normalized_rows (list): List of SMART attribute IDs to include (normalized values)
+        raw_rows (list): List of SMART attribute IDs to include (raw values)
+        verbose (bool): Whether to print detailed information during data loading
+        batch_size (int): Batch size for PyTorch DataLoaders
+        dtype_dict (dict, optional): Data type specifications for efficient CSV reading
+        columns_to_delete (list, optional): List of column names to remove during preprocessing
+        
+    Returns:
+        tuple: (train_loader, test_loader) where:
+            - train_loader: PyTorch DataLoader for training data
+            - test_loader: PyTorch DataLoader for testing data
     """
     data_loader = DriveDataLoader(root=root, 
                                  train_ratio=train_ratio, 
@@ -616,30 +765,38 @@ def load_data(root: str,
 
 def train_model(features, n_neurons, model_path, days_to_predict, days_to_train, train_loader, test_loader, test_existing=False, learning_rate=0.001, num_epochs=1, device=None):
     """
-    Trains an LSTM-based neural network model for time series prediction, with support for model checkpointing, 
-    validation, and optional testing of existing models.
-    This function handles the full training loop, including loading an existing model if available, 
-    training from scratch if not, validating after each epoch, and saving the best-performing model 
-    based on validation loss. It also supports evaluation of a previously trained model without retraining.
+    Train an LSTM neural network for hard drive failure prediction with comprehensive monitoring and persistence.
+    
+    This function handles the complete training pipeline, including model initialization, hyperparameter
+    configuration, training loop execution, validation monitoring, and model persistence. It supports
+    both training from scratch and loading existing models for evaluation.
+    
+    The training process implements early stopping based on validation loss, comprehensive progress
+    tracking with tqdm, and automatic model saving when performance improves. The function also
+    supports testing existing models without retraining.
+    
     Args:
-        features (int): Number of input features for the model.
-        n_neurons (int): Number of neurons in the LSTM layer.
-        model_path (str): Path to save or load the model checkpoint.
-        days_to_predict (int): Number of future days to predict.
-        days_to_train (int): Number of past days used for training input.
-        train_loader (DataLoader): PyTorch DataLoader for training data.
-        test_loader (DataLoader): PyTorch DataLoader for validation/testing data.
-        test_existing (bool, optional): If True, loads and evaluates an existing model without retraining. Defaults to False.
-        learning_rate (float, optional): Learning rate for the optimizer. Defaults to 0.001.
-        num_epochs (int, optional): Number of training epochs. Defaults to 1.
-        device (torch.device, optional): Device to run the model on ('cuda' or 'cpu'). If None, automatically selects GPU if available.
+        features (int): Number of input features (SMART attributes) for the model
+        n_neurons (int): Number of neurons in the LSTM hidden layer
+        model_path (str): Path where the trained model should be saved/loaded
+        days_to_predict (int): Number of future days the model should predict
+        days_to_train (int): Number of historical days used as input for predictions
+        train_loader (DataLoader): PyTorch DataLoader containing training data
+        test_loader (DataLoader): PyTorch DataLoader containing validation/test data
+        test_existing (bool): If True, load and evaluate existing model without retraining
+        learning_rate (float): Learning rate for the Adam optimizer
+        num_epochs (int): Maximum number of training epochs
+        device (torch.device, optional): Device to run training on. Auto-detects if None
+        
     Returns:
-        model (torch.nn.Module): The trained or loaded model.
-        model_exists (bool): True if a saved model was found and loaded, False if training was performed from scratch.
-    Notes:
-        - The function saves the best model (with lowest validation loss) during training.
-        - Loss curves are plotted and saved to disk for monitoring training progress.
-        - If `test_existing` is True and a model checkpoint exists, the function skips training and only evaluates.
+        tuple: (trained_model, model_existed) where:
+            - trained_model: The trained PyTorch model ready for inference
+            - model_existed: Boolean indicating if a pre-trained model was found and loaded
+            
+    Side Effects:
+        - Saves trained model and metrics to disk
+        - Generates and saves loss curves and prediction plots
+        - Prints detailed training progress and evaluation results
     """
     # Check if GPU is available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -809,25 +966,40 @@ from itertools import product
 
 def grid_search_lstm(root, train_ratio, min_sequence_length, days_to_train, days_to_predict, normalized_rows, raw_rows, verbose, num_features, device, param_grid=None, max_epochs=3):
     """
-    Perform grid search over LSTM hyperparameters.
+    Perform systematic hyperparameter optimization for LSTM models using grid search.
+    
+    This function explores different combinations of LSTM hyperparameters to find the
+    optimal configuration for hard drive failure prediction. It trains multiple models
+    with different parameter combinations and selects the best performing configuration
+    based on validation loss.
+    
+    The grid search process loads data once and reuses it for all parameter combinations,
+    ensuring fair comparison between different configurations. Each model is trained
+    for a limited number of epochs to efficiently explore the parameter space.
+    
     Args:
-        root: Path to data
-        train_ratio: Train/test split ratio
-        min_sequence_length: Minimum sequence length
-        input_len: Input window length
-        label_len: Prediction window length
-        normalized_rows: SMART normalized features
-        raw_rows: SMART raw features
-        verbose: Verbosity
-        num_features: Number of input features
-        days_to_predict: Number of days to predict
-        days_to_train: Number of days to use for input
-        device: torch.device
-        param_grid: dict of parameter lists
-        max_epochs: int, number of epochs for each trial
+        root (str): Root directory containing training data
+        train_ratio (float): Proportion of drives to use for training
+        min_sequence_length (int): Minimum number of days required per drive
+        days_to_train (int): Number of historical days used as input
+        days_to_predict (int): Number of future days to predict
+        normalized_rows (list): SMART attribute IDs to include (normalized values)
+        raw_rows (list): SMART attribute IDs to include (raw values)
+        verbose (bool): Whether to print detailed progress information
+        num_features (int): Total number of input features
+        device (torch.device): Device to run training on
+        param_grid (dict, optional): Dictionary of parameter lists to search. Defaults to predefined grid
+        max_epochs (int): Number of epochs to train each model configuration
+        
     Returns:
-        dict: Best parameters (excluding batch_size)
-        float: Best validation loss
+        tuple: (best_parameters, best_validation_loss) where:
+            - best_parameters: Dictionary containing the optimal hyperparameter combination
+            - best_validation_loss: Lowest validation loss achieved during the search
+            
+    Notes:
+        - Default parameter grid includes n_neurons [4, 8, 16] and learning_rate [0.001, 0.005]
+        - Temporary models are saved as 'models/lstm_gridsearch.pth' during search
+        - Best parameters exclude batch_size for compatibility with other functions
     """
     if param_grid is None:
         param_grid = {
@@ -885,14 +1057,30 @@ def grid_search_lstm(root, train_ratio, min_sequence_length, days_to_train, days
 
 def main():
     """
-    Main function to execute the LSTM model training, evaluation, and CT analysis integration.
+    Main execution function for LSTM-based hard drive failure prediction system.
     
-    This function handles the complete workflow:
-    1. Dataset loading and preprocessing
-    2. Model training with progress tracking
-    3. Model evaluation and testing
-    4. Prediction generation and visualization
-    5. CT analysis integration for drive failure analysis
+    This function orchestrates the complete machine learning pipeline, including data loading,
+    hyperparameter optimization, model training, evaluation, and result visualization. It
+    demonstrates the full workflow from raw SMART data to trained model predictions.
+    
+    The pipeline includes:
+    1. Device detection and configuration
+    2. Data loading with train/test splitting at drive level
+    3. Grid search for optimal hyperparameters
+    4. Model training with progress monitoring
+    5. Model evaluation and prediction generation
+    6. Result visualization and metrics saving
+    
+    Configuration parameters are set at the beginning of the function and can be modified
+    for different experimental setups. The function handles both training new models and
+    testing existing saved models based on the test_existing flag.
+    
+    Side Effects:
+        - Loads and preprocesses hard drive SMART data
+        - Trains and saves LSTM models
+        - Generates prediction plots and evaluation metrics
+        - Saves results and model artifacts to disk
+        - Prints comprehensive progress and performance information
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -930,14 +1118,12 @@ def main():
         root=path,
         train_ratio=0.8,
         min_sequence_length=min_sequence_length,
-        input_len=days_to_train,
-        label_len=days_to_predict,
+        days_to_train=days_to_train,
+        days_to_predict=days_to_predict,
         normalized_rows=[1, 3, 5, 7, 9, 187, 189, 190, 195, 197],
         raw_rows=[5, 197],
         verbose=verbose,
         num_features=num_features,
-        days_to_predict=days_to_predict,
-        days_to_train=days_to_train,
         device=device,
         param_grid=None,
         max_epochs=num_epochs
