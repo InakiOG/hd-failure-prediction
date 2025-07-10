@@ -85,7 +85,17 @@ class DriveDataLoader:
             raise FileNotFoundError(msg)
         
         if num_drives > 0:
-            self._get_drives(num_drives, min_sequence_length)
+            self._load_all_data()
+            self.train_ratio = 1.0  # Use all data for training
+            self._split_drives(min_sequence_length)
+            # Only keep drives in self.train_drives and limit to num_drives
+            grouped = self.all_data.groupby('serial_number')
+            valid_train_drives = [k for k in self.train_drives if k in grouped.groups]
+            if len(valid_train_drives) < num_drives:
+                raise ValueError(f"Requested {num_drives} drives, but only {len(valid_train_drives)} available in train set.")
+            selected_drives = random.sample(valid_train_drives, num_drives)
+            self.train_drives = selected_drives
+            
         else:
             # Load all data
             self._load_all_data()
@@ -145,102 +155,58 @@ class DriveDataLoader:
     
     def _split_drives(self, min_sequence_length: int = 5):
         """
-        Filter drives by minimum sequence length, then split into train and test sets.
-        
+        Filter drives by minimum consecutive sequence length, then split into train and test sets.
+
         Args:
-            min_sequence_length (int): Minimum number of days required per drive
+            min_sequence_length (int): Minimum number of consecutive days required per drive.
         """
-        # Group by drive and check sequence lengths
+        self.all_data['date'] = pd.to_datetime(self.all_data['date'])
         grouped = self.all_data.groupby('serial_number')
-        group_sizes = grouped.size()
-        
+        valid_drives = []
+        invalid_drives = {}
+
         if self.verbose:
             print(f'[DriveDataLoader] Found {len(grouped.groups)} unique drives.')
-            print(f'[DriveDataLoader] Filtering drives with minimum {min_sequence_length} days...')
-        
-        # Filter drives that meet minimum sequence length requirement
-        valid_drives = group_sizes[group_sizes >= min_sequence_length].index.tolist()
-        invalid_drives = group_sizes[group_sizes < min_sequence_length]
-        
+            print(f'[DriveDataLoader] Filtering drives with minimum {min_sequence_length} consecutive days...')
+
+        for serial, group in grouped:
+            # Sort by date (assuming column is 'date' and is datetime64)
+            dates = group['date'].sort_values().dt.normalize()
+            # Compute difference between consecutive days, in days
+            diffs = dates.diff().dt.days.fillna(1)
+            # Streak ID increases where difference != 1 day
+            streak_ids = diffs.ne(1).cumsum()
+            # Size of each streak
+            streak_sizes = streak_ids.value_counts()
+            max_streak = streak_sizes.max()
+            if max_streak >= min_sequence_length:
+                valid_drives.append(serial)
+            else:
+                invalid_drives[serial] = int(max_streak)
+
         if self.verbose:
-            print(f'[DriveDataLoader] Valid drives (>= {min_sequence_length} days): {len(valid_drives)}')
-            print(f'[DriveDataLoader] Invalid drives (< {min_sequence_length} days): {len(invalid_drives)}')
-            if len(invalid_drives) > 0:
-                print(f'[DriveDataLoader] Sequence length distribution of invalid drives:')
-                print(f'[DriveDataLoader]   {dict(invalid_drives.value_counts().sort_index())}')
-        
+            print(f'[DriveDataLoader] Valid drives (>= {min_sequence_length} consecutive days): {len(valid_drives)}')
+            print(f'[DriveDataLoader] Invalid drives (< {min_sequence_length} consecutive days): {len(invalid_drives)}')
+            if invalid_drives:
+                print(f'[DriveDataLoader] Max consecutive sequence length distribution of invalid drives:')
+                from collections import Counter
+                print(f'[DriveDataLoader]   {dict(Counter(invalid_drives.values()))}')
+
         if len(valid_drives) == 0:
-            raise ValueError(f'No drives found with minimum sequence length of {min_sequence_length} days. '
-                           f'Please check your data or reduce the minimum sequence length requirement.')
-        
-        # Update the dataset to only include valid drives
+            raise ValueError(
+                f'No drives found with minimum consecutive sequence length of {min_sequence_length} days. '
+                f'Please check your data or reduce the minimum sequence length requirement.'
+            )
+
         self.all_data = self.all_data[self.all_data['serial_number'].isin(valid_drives)]
-        
-        # Shuffle valid drives to randomize the split (with fixed seed for reproducibility)
+
         np.random.seed(42)
         np.random.shuffle(valid_drives)
-          # Calculate split point
+
         split_point = int(len(valid_drives) * self.train_ratio)
-        
-        # Split drives
         self.train_drives = valid_drives[:split_point]
         self.test_drives = valid_drives[split_point:]
         
-        if self.verbose:
-            print(f'[DriveDataLoader] Split: {len(self.train_drives)} drives for training, {len(self.test_drives)} drives for testing.')
-            print(f'[DriveDataLoader] Train ratio: {len(self.train_drives) / len(valid_drives):.2%}')
-            print(f'[DriveDataLoader] Final dataset: {len(self.all_data)} rows from {len(valid_drives)} valid drives.')
-            
-            # Show sample drives from train and test sets to verify date ranges
-            if len(self.train_drives) > 0:
-                sample_train_drive = self.train_drives[0]
-                train_drive_data = self.all_data[self.all_data['serial_number'] == sample_train_drive]
-                train_dates = pd.to_datetime(train_drive_data['date'])
-                print(f'[DriveDataLoader] Sample TRAIN drive {sample_train_drive}: {len(train_drive_data)} rows, dates {train_dates.min().date()} to {train_dates.max().date()}')
-            
-            if len(self.test_drives) > 0:
-                sample_test_drive = self.test_drives[0]
-                test_drive_data = self.all_data[self.all_data['serial_number'] == sample_test_drive]
-                test_dates = pd.to_datetime(test_drive_data['date'])
-                print(f'[DriveDataLoader] Sample TEST drive {sample_test_drive}: {len(test_drive_data)} rows, dates {test_dates.min().date()} to {test_dates.max().date()}')
-            
-            # Verify no overlap between train and test drives
-            overlap = set(self.train_drives) & set(self.test_drives)
-            if len(overlap) == 0:
-                print(f'[DriveDataLoader] ✅ Verified: No drive overlap between train and test sets.')
-            else:
-                print(f'[DriveDataLoader] ⚠️  WARNING: Found {len(overlap)} drives in both train and test sets!')
-            
-            # Show sample drive groups to verify correct date ranges and separation
-            print(f'\n[DriveDataLoader] 📊 Sample drive verification:')
-            
-            # Show one drive from training set
-            if len(self.train_drives) > 0:
-                sample_train_drive = self.train_drives[0]
-                train_data_sample = self.all_data[self.all_data['serial_number'] == sample_train_drive]
-                train_dates = sorted(train_data_sample['date'].unique())
-                print(f'[DriveDataLoader] 🚂 TRAIN sample - Drive {sample_train_drive}:')
-                print(f'[DriveDataLoader]   📅 Dates: {train_dates[0]} to {train_dates[-1]} ({len(train_dates)} days)')
-                print(f'[DriveDataLoader]   📊 Rows: {len(train_data_sample)}')
-            
-            # Show one drive from test set
-            if len(self.test_drives) > 0:
-                sample_test_drive = self.test_drives[0]
-                test_data_sample = self.all_data[self.all_data['serial_number'] == sample_test_drive]
-                test_dates = sorted(test_data_sample['date'].unique())
-                print(f'[DriveDataLoader] 🧪 TEST sample - Drive {sample_test_drive}:')
-                print(f'[DriveDataLoader]   📅 Dates: {test_dates[0]} to {test_dates[-1]} ({len(test_dates)} days)')
-                print(f'[DriveDataLoader]   📊 Rows: {len(test_data_sample)}')
-            
-            # Verify no overlap between train and test drives
-            train_set = set(self.train_drives)
-            test_set = set(self.test_drives)
-            overlap = train_set.intersection(test_set)
-            if len(overlap) == 0:
-                print(f'[DriveDataLoader] ✅ Verified: No drive overlap between train and test sets')
-            else:
-                print(f'[DriveDataLoader] ❌ WARNING: {len(overlap)} drives found in both train and test sets!')
-    
     def get_train_data(self):
         """Get data for training drives only."""
         return self.all_data[self.all_data['serial_number'].isin(self.train_drives)]
